@@ -1,0 +1,248 @@
+groups:
+  - name: elephant_availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"elephant.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Elephant service {{ $labels.instance }} is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} has been down for more than 2 minutes"
+          runbook: "https://github.com/dimelords/elephant-handbook/docs/09-operations/troubleshooting.md#service-down"
+
+      - alert: HighRestartRate
+        expr: rate(kube_pod_container_status_restarts_total{namespace="elephant"}[15m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High restart rate for {{ $labels.pod }}"
+          description: "Pod {{ $labels.pod }} is restarting frequently ({{ $value }} restarts/sec)"
+
+  - name: elephant_performance
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job=~"elephant.*",status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job=~"elephant.*"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.job }}"
+          runbook: "https://github.com/dimelords/elephant-handbook/docs/09-operations/troubleshooting.md#high-error-rate"
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job=~"elephant.*"}[5m])) by (job, le)
+          ) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "High latency on {{ $labels.job }}"
+          description: "P95 latency is {{ $value }}s on {{ $labels.job }}"
+          runbook: "https://github.com/dimelords/elephant-handbook/docs/09-operations/troubleshooting.md#high-latency"
+
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket{job=~"elephant.*"}[5m])) by (job, le)
+          ) > 5.0
+        for: 5m
+        labels:
+          severity: critical
+          component: performance
+        annotations:
+          summary: "Very high latency on {{ $labels.job }}"
+          description: "P99 latency is {{ $value }}s on {{ $labels.job }}"
+
+  - name: elephant_repository
+    interval: 30s
+    rules:
+      - alert: EventLogProcessingStalled
+        expr: |
+          (time() - event_log_last_processed_timestamp{job="elephant-repository"}) > 300
+        for: 5m
+        labels:
+          severity: warning
+          component: repository
+        annotations:
+          summary: "Event log processing has stalled"
+          description: "No events processed in last {{ $value }}s"
+          runbook: "https://github.com/dimelords/elephant-handbook/docs/09-operations/troubleshooting.md#event-log-stalled"
+
+      - alert: HighDocumentCreationRate
+        expr: rate(documents_created_total[5m]) > 100
+        for: 10m
+        labels:
+          severity: info
+          component: repository
+        annotations:
+          summary: "High document creation rate"
+          description: "Creating {{ $value }} documents/sec - possible bulk import"
+
+      - alert: S3UploadFailures
+        expr: rate(s3_upload_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          component: storage
+        annotations:
+          summary: "S3 upload failures detected"
+          description: "{{ $value }} S3 upload failures per second"
+          runbook: "https://github.com/dimelords/elephant-handbook/docs/09-operations/troubleshooting.md#s3-failures"
+
+  - name: elephant_index
+    interval: 30s
+    rules:
+      - alert: IndexLagging
+        expr: index_lag_seconds > 300
+        for: 10m
+        labels:
+          severity: warning
+          component: search
+        annotations:
+          summary: "Search index is lagging behind repository"
+          description: "Index is {{ $value }}s behind repository event log"
+          runbook: "https://github.com/dimelords/elephant-handbook/docs/09-operations/troubleshooting.md#index-lagging"
+
+      - alert: IndexLaggingSevere
+        expr: index_lag_seconds > 1800
+        for: 5m
+        labels:
+          severity: critical
+          component: search
+        annotations:
+          summary: "Search index severely lagging"
+          description: "Index is {{ $value }}s behind (> 30 minutes)"
+
+      - alert: OpenSearchClusterUnhealthy
+        expr: opensearch_cluster_health_status{status="red"} == 1
+        for: 2m
+        labels:
+          severity: critical
+          component: search
+        annotations:
+          summary: "OpenSearch cluster is unhealthy"
+          description: "Cluster status is RED - data loss possible"
+          runbook: "https://github.com/dimelords/elephant-handbook/docs/05-infrastructure/opensearch.md#cluster-red"
+
+      - alert: HighSearchLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(search_query_duration_seconds_bucket[5m])) by (le)
+          ) > 2.0
+        for: 10m
+        labels:
+          severity: warning
+          component: search
+        annotations:
+          summary: "High search query latency"
+          description: "P95 search latency is {{ $value }}s"
+
+  - name: elephant_database
+    interval: 30s
+    rules:
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is unreachable"
+          runbook: "https://github.com/dimelords/elephant-handbook/docs/09-operations/troubleshooting.md#postgres-down"
+
+      - alert: HighConnectionUsage
+        expr: |
+          (
+            sum(pg_stat_database_numbackends) by (instance)
+            /
+            pg_settings_max_connections
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High PostgreSQL connection usage"
+          description: "{{ $value | humanizePercentage }} of connections in use"
+
+      - alert: ReplicationLag
+        expr: pg_replication_lag_seconds > 60
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "PostgreSQL replication lag detected"
+          description: "Replica is {{ $value }}s behind primary"
+
+      - alert: DatabaseDiskUsageHigh
+        expr: |
+          (
+            pg_database_size_bytes
+            /
+            node_filesystem_size_bytes{mountpoint="/var/lib/postgresql/data"}
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Database disk usage high"
+          description: "Database using {{ $value | humanizePercentage }} of available disk"
+
+  - name: elephant_resources
+    interval: 30s
+    rules:
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            container_memory_working_set_bytes{namespace="elephant"}
+            /
+            container_spec_memory_limit_bytes{namespace="elephant"}
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High memory usage in {{ $labels.pod }}"
+          description: "Memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: HighCPUUsage
+        expr: |
+          rate(container_cpu_usage_seconds_total{namespace="elephant"}[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High CPU usage in {{ $labels.pod }}"
+          description: "CPU usage is {{ $value | humanizePercentage }}"
+
+      - alert: PodCrashLooping
+        expr: |
+          rate(kube_pod_container_status_restarts_total{namespace="elephant"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash looping"
+          description: "Pod has restarted {{ $value }} times in last 15 minutes"
