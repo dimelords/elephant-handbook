@@ -1,0 +1,154 @@
+# Prometheus configuration for Elephant
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'elephant-production'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load alert rules
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Elephant backend services
+  - job_name: 'elephant-repository'
+    static_configs:
+      - targets:
+          - 'elephant-repository:1080'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'elephant-index'
+    static_configs:
+      - targets:
+          - 'elephant-index:1081'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'elephant-user'
+    static_configs:
+      - targets:
+          - 'elephant-user:1082'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # PostgreSQL exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets:
+          - 'postgres-exporter:9187'
+    scrape_interval: 15s
+
+  # OpenSearch metrics
+  - job_name: 'opensearch'
+    static_configs:
+      - targets:
+          - 'opensearch:9200'
+    metrics_path: '/_prometheus/metrics'
+    scrape_interval: 30s
+
+  # MinIO metrics
+  - job_name: 'minio'
+    static_configs:
+      - targets:
+          - 'minio:9000'
+    metrics_path: '/minio/v2/metrics/cluster'
+    scrape_interval: 30s
+
+  # Node exporter (for host metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets:
+          - 'node-exporter:9100'
+    scrape_interval: 15s
+
+  # Kubernetes service discovery (if running in k8s)
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - elephant
+    relabel_configs:
+      # Only scrape pods with prometheus.io/scrape annotation
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+
+      # Use custom scrape path if specified
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+
+      # Use custom port if specified
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+
+      # Add pod labels
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # Kubernetes services
+  - job_name: 'kubernetes-services'
+    kubernetes_sd_configs:
+      - role: service
+        namespaces:
+          names:
+            - elephant
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+
+      - action: labelmap
+        regex: __meta_kubernetes_service_label_(.+)
+
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+
+# Remote write for long-term storage (optional)
+# remote_write:
+#   - url: 'https://prometheus-remote-write.example.com/api/v1/write'
+#     basic_auth:
+#       username: 'your-username'
+#       password: 'your-password'
