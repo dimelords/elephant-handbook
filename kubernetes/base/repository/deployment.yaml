@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elephant-repository
+  labels:
+    app: elephant-repository
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: elephant-repository
+  template:
+    metadata:
+      labels:
+        app: elephant-repository
+        component: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "1080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: repository
+          image: ghcr.io/dimelords/elephant-repository:latest
+          ports:
+            - containerPort: 1080
+              name: http
+              protocol: TCP
+          env:
+            - name: CONN_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-connection
+                  key: connection-string
+            - name: S3_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: elephant-config
+                  key: s3-endpoint
+            - name: S3_BUCKET
+              value: elephant-archive
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: s3-credentials
+                  key: access-key-id
+            - name: S3_ACCESS_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: s3-credentials
+                  key: secret-access-key
+            - name: JWT_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-signing-key
+                  key: private-key
+            - name: LOG_LEVEL
+              value: info
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 1080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 1080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - elephant-repository
+                topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elephant-repository
+  labels:
+    app: elephant-repository
+spec:
+  type: ClusterIP
+  ports:
+    - port: 1080
+      targetPort: 1080
+      protocol: TCP
+      name: http
+  selector:
+    app: elephant-repository
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elephant-config
+data:
+  s3-endpoint: "http://minio:9000"
+  repository-url: "http://elephant-repository:1080"
+  index-url: "http://elephant-index:1081"

@@ -1,0 +1,316 @@
+{
+  "name": "acme/press-release",
+  "version": "1.0.0",
+  "description": "Press release document type with embargo and contact information validation",
+  "labels": {
+    "en": "Press Release",
+    "sv": "Pressmeddelande"
+  },
+  "declares": [
+    {
+      "name": "title",
+      "type": "string",
+      "labels": {
+        "en": "Headline",
+        "sv": "Rubrik"
+      },
+      "description": "Press release headline",
+      "constraints": [
+        {
+          "type": "required",
+          "message": "Press release must have a headline"
+        },
+        {
+          "type": "length",
+          "min": 10,
+          "max": 200,
+          "message": "Headline must be between 10 and 200 characters"
+        }
+      ]
+    },
+    {
+      "name": "meta_fields",
+      "type": "object",
+      "labels": {
+        "en": "Press Release Metadata",
+        "sv": "Pressmeddelande metadata"
+      },
+      "description": "Press release specific information",
+      "constraints": [
+        {
+          "type": "required",
+          "message": "Press release metadata is required"
+        }
+      ],
+      "properties": [
+        {
+          "name": "embargo_until",
+          "type": "string",
+          "labels": {
+            "en": "Embargo Until",
+            "sv": "Spärrtid till"
+          },
+          "description": "Date and time when press release can be published",
+          "constraints": [
+            {
+              "type": "pattern",
+              "value": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+              "message": "Embargo date must be ISO 8601 format (e.g., 2026-03-01T09:00:00Z)"
+            },
+            {
+              "type": "custom/future-date",
+              "message": "Embargo date must be in the future"
+            }
+          ]
+        },
+        {
+          "name": "contact_name",
+          "type": "string",
+          "labels": {
+            "en": "Press Contact Name",
+            "sv": "Presskontakt namn"
+          },
+          "constraints": [
+            {
+              "type": "required",
+              "message": "Press contact name is required"
+            },
+            {
+              "type": "length",
+              "min": 2,
+              "max": 100,
+              "message": "Contact name must be between 2 and 100 characters"
+            }
+          ]
+        },
+        {
+          "name": "contact_email",
+          "type": "string",
+          "labels": {
+            "en": "Press Contact Email",
+            "sv": "Presskontakt e-post"
+          },
+          "constraints": [
+            {
+              "type": "required",
+              "message": "Press contact email is required"
+            },
+            {
+              "type": "pattern",
+              "value": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+              "message": "Must be a valid email address"
+            }
+          ]
+        },
+        {
+          "name": "contact_phone",
+          "type": "string",
+          "labels": {
+            "en": "Press Contact Phone",
+            "sv": "Presskontakt telefon"
+          },
+          "constraints": [
+            {
+              "type": "pattern",
+              "value": "^\\+?[1-9]\\d{1,14}$",
+              "message": "Must be a valid phone number (E.164 format recommended)"
+            }
+          ]
+        },
+        {
+          "name": "company",
+          "type": "string",
+          "labels": {
+            "en": "Company Name",
+            "sv": "Företagsnamn"
+          },
+          "constraints": [
+            {
+              "type": "required",
+              "message": "Company name is required"
+            },
+            {
+              "type": "length",
+              "min": 2,
+              "max": 200,
+              "message": "Company name must be between 2 and 200 characters"
+            }
+          ]
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "labels": {
+            "en": "Location",
+            "sv": "Plats"
+          },
+          "description": "Press release dateline location (e.g., 'STOCKHOLM, Sweden')",
+          "constraints": [
+            {
+              "type": "pattern",
+              "value": "^[A-Z][A-Z\\s]+,\\s+[A-Z][a-z]+(\\s+[A-Z][a-z]+)*$",
+              "message": "Location must be in format 'CITY, Country' (e.g., 'STOCKHOLM, Sweden')"
+            }
+          ]
+        },
+        {
+          "name": "boilerplate",
+          "type": "string",
+          "labels": {
+            "en": "Company Boilerplate",
+            "sv": "Företagsbeskrivning"
+          },
+          "description": "Standard company description",
+          "constraints": [
+            {
+              "type": "length",
+              "min": 50,
+              "max": 500,
+              "message": "Boilerplate must be between 50 and 500 characters"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "content",
+      "type": "document",
+      "labels": {
+        "en": "Content",
+        "sv": "Innehåll"
+      },
+      "description": "Press release body content",
+      "constraints": [
+        {
+          "type": "required",
+          "message": "Press release must have content"
+        },
+        {
+          "type": "document/contains-block",
+          "block": "core/heading-1",
+          "count": "required",
+          "message": "Press release must have a heading"
+        },
+        {
+          "type": "document/contains-block",
+          "block": "core/paragraph",
+          "count": "required",
+          "min": 2,
+          "message": "Press release must have at least 2 paragraphs"
+        },
+        {
+          "type": "document/no-empty-blocks",
+          "message": "All content blocks must have text"
+        },
+        {
+          "type": "custom/min-word-count",
+          "min_words": 100,
+          "message": "Press release must have at least 100 words"
+        }
+      ],
+      "allowed_blocks": [
+        "core/heading-1",
+        "core/heading-2",
+        "core/paragraph",
+        "core/quote",
+        "core/list",
+        "core/image",
+        "core/fact-box"
+      ]
+    },
+    {
+      "name": "links",
+      "type": "array",
+      "labels": {
+        "en": "Media Assets",
+        "sv": "Mediaresurser"
+      },
+      "description": "Related media files and resources",
+      "constraints": [
+        {
+          "type": "custom/require-logo",
+          "message": "Press release should include company logo"
+        }
+      ],
+      "allowed_link_types": [
+        "logo",
+        "contact-image",
+        "media-kit",
+        "related"
+      ]
+    }
+  ],
+  "template": {
+    "type": "acme/press-release",
+    "uri": "",
+    "uuid": "",
+    "title": "",
+    "meta": [
+      {
+        "type": "core/embargo-until",
+        "value": ""
+      },
+      {
+        "type": "core/dateline",
+        "value": ""
+      }
+    ],
+    "links": [],
+    "content": [
+      {
+        "type": "core/heading-1",
+        "uuid": "",
+        "data": {
+          "text": ""
+        }
+      },
+      {
+        "type": "core/paragraph",
+        "uuid": "",
+        "data": {
+          "text": ""
+        }
+      },
+      {
+        "type": "core/paragraph",
+        "uuid": "",
+        "data": {
+          "text": ""
+        }
+      },
+      {
+        "type": "core/heading-2",
+        "uuid": "",
+        "data": {
+          "text": "About [Company Name]"
+        }
+      },
+      {
+        "type": "core/paragraph",
+        "uuid": "",
+        "data": {
+          "text": "[Boilerplate text]"
+        }
+      }
+    ],
+    "meta_fields": {
+      "contact_name": "",
+      "contact_email": "",
+      "contact_phone": "",
+      "company": "",
+      "location": "",
+      "boilerplate": ""
+    }
+  },
+  "validation_rules": {
+    "on_create": [
+      "embargo_must_be_future",
+      "contact_info_complete"
+    ],
+    "on_publish": [
+      "embargo_passed",
+      "all_required_fields_filled",
+      "minimum_content_length"
+    ]
+  }
+}

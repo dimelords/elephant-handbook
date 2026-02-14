@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Press Release",
+  "description": "Press release document type with embargo support",
+  "type": "object",
+  "required": ["uuid", "type", "uri", "title", "content"],
+  "properties": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the document"
+    },
+    "type": {
+      "type": "string",
+      "const": "acme/press-release",
+      "description": "Document type identifier"
+    },
+    "uri": {
+      "type": "string",
+      "description": "Document URI"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Public URL (optional)"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 200,
+      "description": "Press release headline"
+    },
+    "meta": {
+      "type": "array",
+      "description": "Metadata blocks",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "contains": {
+        "type": "object",
+        "required": ["type", "value"],
+        "properties": {
+          "type": {"const": "core/embargo-until"},
+          "value": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Embargo date and time (ISO 8601)"
+          }
+        }
+      }
+    },
+    "links": {
+      "type": "array",
+      "description": "Related resources",
+      "items": {
+        "type": "object",
+        "required": ["rel", "type", "uuid"],
+        "properties": {
+          "rel": {
+            "type": "string",
+            "enum": ["logo", "contact-image", "media-kit", "related"]
+          },
+          "type": {
+            "type": "string"
+          },
+          "uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "content": {
+      "type": "array",
+      "minItems": 2,
+      "description": "Press release content blocks",
+      "items": {
+        "type": "object",
+        "required": ["uuid", "type"],
+        "properties": {
+          "uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          },
+          "links": {
+            "type": "array"
+          }
+        }
+      },
+      "contains": {
+        "anyOf": [
+          {
+            "properties": {
+              "type": {"const": "core/heading-1"}
+            }
+          },
+          {
+            "properties": {
+              "type": {"const": "core/paragraph"}
+            }
+          }
+        ]
+      }
+    },
+    "meta_fields": {
+      "type": "object",
+      "description": "Press release specific metadata",
+      "properties": {
+        "embargo_until": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Embargo date (duplicated for easy access)"
+        },
+        "contact_name": {
+          "type": "string",
+          "description": "Press contact name"
+        },
+        "contact_email": {
+          "type": "string",
+          "format": "email",
+          "description": "Press contact email"
+        },
+        "contact_phone": {
+          "type": "string",
+          "description": "Press contact phone"
+        },
+        "company": {
+          "type": "string",
+          "description": "Company name"
+        },
+        "location": {
+          "type": "string",
+          "description": "Press release location (e.g., 'STOCKHOLM, Sweden')"
+        },
+        "boilerplate": {
+          "type": "string",
+          "description": "Company boilerplate text"
+        }
+      },
+      "required": ["contact_name", "contact_email", "company"]
+    }
+  },
+  "examples": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "acme/press-release",
+      "uri": "acme://press-release/2026/product-launch",
+      "title": "ACME Corp Launches Revolutionary Widget 2.0",
+      "meta": [
+        {
+          "type": "core/embargo-until",
+          "value": "2026-03-01T09:00:00Z"
+        },
+        {
+          "type": "core/dateline",
+          "value": "STOCKHOLM, Sweden - February 14, 2026"
+        }
+      ],
+      "links": [
+        {
+          "rel": "logo",
+          "type": "image/png",
+          "uuid": "650e8400-e29b-41d4-a716-446655440000",
+          "title": "ACME Corp Logo"
+        }
+      ],
+      "content": [
+        {
+          "uuid": "750e8400-e29b-41d4-a716-446655440000",
+          "type": "core/heading-1",
+          "data": {
+            "text": "ACME Corp Launches Revolutionary Widget 2.0"
+          }
+        },
+        {
+          "uuid": "850e8400-e29b-41d4-a716-446655440000",
+          "type": "core/paragraph",
+          "data": {
+            "text": "ACME Corp today announced the launch of Widget 2.0, a groundbreaking product that will transform the industry."
+          }
+        }
+      ],
+      "meta_fields": {
+        "embargo_until": "2026-03-01T09:00:00Z",
+        "contact_name": "Jane Smith",
+        "contact_email": "press@acme.com",
+        "contact_phone": "+1-555-0123",
+        "company": "ACME Corporation",
+        "location": "STOCKHOLM, Sweden",
+        "boilerplate": "ACME Corporation is a leading provider of innovative widget solutions, serving customers worldwide since 1990."
+      }
+    }
+  ]
+}
