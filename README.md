@@ -85,12 +85,15 @@ cd elephant-handbook
 - [Redis](docs/05-infrastructure/redis.md) - Caching layer (if used)
 - [Networking](docs/05-infrastructure/networking.md) - Network architecture and security
 
-### 🔐 06. Authentication
+### 🔐 06. Authentication & API Testing
 - [OIDC Setup](docs/06-authentication/oidc-setup.md) - OpenID Connect configuration
 - [Keycloak](docs/06-authentication/keycloak.md) - Keycloak integration guide
 - [Auth0](docs/06-authentication/auth0.md) - Auth0 integration guide
 - [JWT Claims](docs/06-authentication/jwt-claims.md) - Required JWT structure and claims
 - [Mock Auth](docs/06-authentication/mock-auth.md) - Development mock authentication
+- **API Testing**
+  - [Postman Guide](docs/06-api-testing/postman.md) - Testing APIs with Postman collections
+  - [cURL Examples](docs/06-api-testing/curl-examples.md) - Command-line API testing
 
 ### ⚙️ 07. Configuration
 - [Database Initialization](docs/07-configuration/database-init.md) - Initial database configuration and seeding
@@ -108,21 +111,18 @@ cd elephant-handbook
 
 ### 🔨 09. Operations
 - [Backup & Restore](docs/09-operations/backup-restore.md) - Backup procedures and disaster recovery
+- [Database Queries](docs/09-operations/database-queries.md) - PostgreSQL query reference for debugging and monitoring
 - [Disaster Recovery](docs/09-operations/disaster-recovery.md) - DR plan and procedures
 - [Upgrades](docs/09-operations/upgrades.md) - Safe upgrade procedures
 - [Troubleshooting](docs/09-operations/troubleshooting.md) - Common issues and solutions
 - [Performance Tuning](docs/09-operations/performance-tuning.md) - Performance optimization guide
 
 ### 🎨 10. Customization
+- [Custom Frontend](docs/10-customization/custom-frontend.md) - Building your own frontend instead of elephant-chrome
 - [Custom NewsDoc](docs/10-customization/custom-newsdoc.md) - Creating your own NewsDoc format
 - [Custom Schemas](docs/10-customization/custom-schemas.md) - Revisor schema customization
 - [Custom Plugins](docs/10-customization/custom-plugins.md) - Textbit editor plugins
 - [Branding](docs/10-customization/branding.md) - UI customization and white-labeling
-
-### 🤝 11. Contributions
-- [Naviga](docs/11-contributions/naviga.md) - Naviga's contributions to the ecosystem
-- [TT](docs/11-contributions/ttab.md) - TT's original design and vision
-- [Community](docs/11-contributions/community.md) - Community contributions and roadmap
 
 ### 🏗️ 12. Architecture (Advanced)
 - [Design Decisions](docs/12-architecture/design-decisions.md) - Why messages vs CDC, architectural choices and rationale
@@ -152,7 +152,7 @@ cd elephant-handbook
 - [media-client](https://github.com/dimelords/media-client) - Media handling
 
 **Upstream (TT/Naviga)**
-- All repositories have corresponding upstream at `https://github.com/ttab/*`
+- Many repositories have corresponding upstream at `https://github.com/ttab/*`
 
 ## Useful Scripts
 
@@ -174,7 +174,7 @@ Pre-configured Terraform modules for:
 - Shared modules for common patterns
 
 ### Kubernetes
-Kustomize-based manifests with overlays for:
+Customize-based manifests with overlays for:
 - Development
 - Staging
 - Production
