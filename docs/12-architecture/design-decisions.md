@@ -1,6 +1,6 @@
 # Design Decisions
 
-This document explains the architectural and design decisions made in the Elephant system, particularly by the original TT/Naviga team.
+This document explains the architectural and design decisions made in the Elephant system by Naviga.
 
 ## Event Log vs Change Data Capture (CDC)
 

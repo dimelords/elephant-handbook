@@ -8,7 +8,7 @@
 
 ## What is Elephant?
 
-Elephant is a NewsDoc document repository system designed for editorial content management. It provides:
+Elephant is a document repository system designed for editorial content management, using the NewsDoc format (originated from Naviga's NavigaDoc). It provides:
 
 - **Version Control**: Full history tracking for all document changes
 - **Access Control**: Fine-grained ACLs for documents and operations

@@ -2,223 +2,231 @@
 
 ## Overview
 
-Naviga is a major contributor to the Elephant ecosystem. As a global provider of media software solutions, Naviga has invested significantly in making Elephant a production-ready, enterprise-grade document repository system for newsrooms and editorial workflows.
+Naviga is the primary architect and developer of the repository ecosystem. As a global provider of media software solutions, Naviga designed a production-ready, enterprise-grade document repository system for newsrooms and editorial workflows.
 
 ## Background
 
-Naviga acquired TT (Tidningarnas Telegrambyrå / Swedish News Agency) and has continued to develop and maintain the Elephant platform as part of their editorial systems portfolio.
+The architecture and document format were designed by Naviga based on their extensive experience with editorial systems and their existing NavigaDoc format.
 
-## Major Contributions
+## Core Architecture and Design
 
-### 1. Production Readiness
+### Initial Architectural Decisions (Naviga)
 
-**Enterprise Features**
-- High availability configurations
-- Disaster recovery capabilities
-- Performance optimizations for large-scale deployments
-- Security hardening
+Naviga made the foundational architectural choices that define Elephant:
 
-**Operational Excellence**
-- Monitoring and observability integrations
-- Deployment automation
-- Backup and restore procedures
-- Migration tools
+**Event Sourcing Architecture**
+- Application-level event log (not CDC)
+- Sequential event numbering for total ordering
+- Event replay and audit capabilities
+- Multiple event consumers pattern
 
-### 2. Infrastructure and Deployment
+**Document Format: NavigaDoc**
+- Block-based content structure
+- Metadata and links support
+- Versioning at the document level
+- Schema validation with Revisor
+- The format evolved from Naviga's editorial system experience
 
-**Kubernetes Support**
-- Helm charts for easy deployment
+**CQRS Pattern**
+- Separate write model (repository) and read model (index)
+- Independent scaling of read and write operations
+- OpenSearch for full-text search
+- PostgreSQL for authoritative storage
+
+**Multi-Tenancy Model**
+- Unit-based access control
+- Hierarchical permissions
+- Organization isolation
+- Scalable ACL system
+
+**Technology Choices**
+- Go for backend services (performance, concurrency)
+- React for frontend (component-based, ecosystem)
+- PostgreSQL (ACID guarantees, JSONB support)
+- Twirp RPC (HTTP/2, Protobuf + JSON)
+- S3 for archiving with cryptographic signatures
+
+### Why These Decisions Were Made
+
+See [Design Decisions](../12-architecture/design-decisions.md) for detailed rationale on:
+- Application event log vs database CDC
+- Full version history storage
+- Identity-provider agnostic authentication
+- Protobuf + JSON dual format
+- Separate repository and index services
+
+## Production Features
+
+### 1. Enterprise-Grade Infrastructure
+
+**High Availability**
 - StatefulSet configurations for databases
-- Service mesh integration patterns
-- Autoscaling policies
+- Multi-replica deployments
+- Automatic failover capabilities
+- Geographic distribution support
 
-**Cloud Provider Integration**
-- AWS deployment templates
-- Azure configurations
-- GCP support
-- Multi-cloud strategies
+**Scalability**
+- Horizontal scaling for API services
+- Vertical scaling for databases
+- Auto-scaling policies
+- Performance optimization for millions of documents
 
-**Docker Optimization**
-- Multi-stage build improvements
-- Image size reduction
-- Security scanning integration
-- Container registries
+**Security**
+- Identity-provider agnostic (OIDC)
+- Fine-grained ACLs
+- Encryption at rest and in transit
+- Regular security audits
+- Secrets management integration
+
+### 2. Cloud and Kubernetes
+
+**Deployment Options**
+- Kubernetes (production-grade)
+- Docker Compose (development)
+- Helm charts for easy deployment
+- Multi-cloud support (AWS, GCP, Azure)
+
+**Infrastructure as Code**
+- Terraform modules
+- CloudFormation templates
+- Automated provisioning
+- Environment parity
 
 ### 3. Search and Indexing
 
-**OpenSearch/Elasticsearch Enhancements**
+**OpenSearch/Elasticsearch Integration**
 - Advanced query capabilities
-- Faceted search improvements
+- Faceted search
 - Relevance tuning
 - Performance optimizations
+- Zero-downtime reindexing
 
 **Index Management**
-- Zero-downtime reindexing
-- Index lifecycle management
+- Per-type and per-language indices
+- Lifecycle management
 - Snapshot and restore
 - Cross-cluster replication
 
-### 4. Security Enhancements
+### 4. Monitoring and Observability
 
-**Authentication**
-- Multiple OIDC provider support
-- Token refresh mechanisms
-- Session management
-- API key authentication
+**Metrics**
+- Prometheus metrics from all services
+- Business and technical metrics
+- Grafana dashboards
+- Performance tracking
 
-**Authorization**
-- Enhanced ACL models
-- Role-based access control patterns
-- Audit logging
-- Compliance features (GDPR, etc.)
+**Frontend Observability**
+- Grafana Faro integration
+- Real User Monitoring (RUM)
+- Core Web Vitals tracking
+- Error tracking
 
-**Data Protection**
-- Encryption at rest
-- Encryption in transit (TLS)
-- Key rotation automation
-- Secrets management integration
+**Logging and Alerting**
+- Structured JSON logging
+- Centralized log aggregation
+- CloudWatch/Loki integration
+- Alert rules and runbooks
 
-### 5. Performance Improvements
+### 5. Developer Experience
 
-**Database Optimization**
-- Query optimization
-- Connection pooling improvements
-- Read replica support
-- Partitioning strategies
+**API Design**
+- Twirp RPC framework
+- Protobuf definitions with generated clients
+- JSON fallback for debugging
+- Strong typing across languages
 
-**Caching**
-- Redis integration patterns
-- Cache invalidation strategies
-- CDN integration for static assets
-- API response caching
+**Documentation**
+- Comprehensive API docs
+- Example integrations
+- Deployment guides
+- Troubleshooting resources
 
-**Concurrency**
-- Optimistic locking improvements
-- Conflict resolution strategies
-- Batch operation support
-- Bulk indexing enhancements
+**Tooling**
+- Mage for task automation
+- Database migrations with Tern
+- Type-safe SQL with SQLC
+- Testing utilities
 
-### 6. API Enhancements
+### 6. Content Management Features
 
-**Twirp API Extensions**
-- Additional RPC methods
-- Batch operations
-- Filtering and pagination improvements
-- Partial response support
+**Document Versioning**
+- Full history preservation
+- Immutable versions
+- Cryptographic signatures
+- S3 archiving with lifecycle policies
 
-**GraphQL Exploration**
-- GraphQL gateway considerations
-- Schema federation patterns
-- Real-time subscriptions exploration
+**Schema Validation**
+- Revisor validation engine
+- Flexible constraint system
+- Template generation
+- Deprecation handling
 
-### 7. Frontend Contributions
+**Collaborative Editing**
+- Y.js CRDT support
+- WebSocket server integration
+- Real-time document updates
+- Conflict-free collaboration
 
-**elephant-chrome Enhancements**
-- UI/UX improvements
-- Accessibility compliance (WCAG)
-- Internationalization (i18n)
-- Dark mode support
-- Mobile responsiveness
+### 7. Media Handling
 
-**Performance**
-- Code splitting
-- Lazy loading
-- Bundle size optimization
-- Service worker for offline support
-
-### 8. Collaborative Editing
-
-**Y.js Integration**
-- WebSocket server configurations
-- Conflict resolution improvements
-- Presence indicators
-- Commenting system
-
-**Real-time Features**
-- Live document updates
-- User presence
-- Notifications
-- Activity streams
-
-### 9. Media Management
-
-**Integration with Media Libraries**
-- Image handling and optimization
+**Integration Capabilities**
+- Image upload and optimization
 - Video embedding
-- Audio transcription hooks
-- Asset management integration
-
-**Renditions**
-- Image cropping and resizing
+- Asset management
 - Format conversion
 - Responsive images
-- WebP support
 
-### 10. Workflow and Publishing
+### 8. Workflow Management
 
-**Status Management**
+**Status System**
 - Customizable workflow states
-- Transition rules and validations
+- Transition rules
 - Approval workflows
 - Publishing schedules
 
-**Integration Points**
-- CMS integration patterns
-- Publishing pipeline hooks
-- Event webhooks
-- External system notifications
+**Event Webhooks**
+- Real-time notifications
+- External system integration
+- Event filtering
+- Retry mechanisms
 
-## Open Source Philosophy
+## Open Source Commitment
 
-Naviga has maintained Elephant's open-source nature:
+Naviga maintains Elephant as open source:
 
-- **Public Repositories**: Core functionality remains open source
+- **Public Repositories**: Core functionality available on GitHub
 - **Community Engagement**: Active response to issues and PRs
-- **Documentation**: Comprehensive documentation and examples
-- **Backwards Compatibility**: Careful evolution of APIs
+- **Documentation**: Comprehensive guides and examples
+- **Backwards Compatibility**: Careful API evolution
 - **Semantic Versioning**: Clear version management
+- **Contributor-Friendly**: Welcoming community contributions
 
 ## Enterprise Support
 
-Naviga offers enterprise support for Elephant:
+Naviga offers enterprise support options:
 
 - **SLA-backed Support**: 24/7 support for production issues
 - **Custom Development**: Feature development for specific needs
 - **Training**: On-site and remote training programs
 - **Migration Services**: Help moving from legacy systems
 - **Hosting**: Managed hosting options
-
-## Technology Contributions
-
-### Go Ecosystem
-
-**Libraries and Tools**
-- Improved Twirp tooling
-- Database migration utilities
-- Testing helpers
-- CI/CD pipelines
-
-### React Ecosystem
-
-**Components and Hooks**
-- Reusable component library (elephant-ui)
-- Custom hooks for Elephant integration
-- TypeScript type definitions
-- Storybook examples
+- **Consulting**: Architecture and integration consulting
 
 ## Integration Examples
 
-Naviga has demonstrated Elephant integration with:
+Naviga has integrated Elephant with:
 
 - **Naviga Writer**: Editorial writing interface
 - **Naviga Composer**: Page layout and composition
 - **Naviga Planner**: Editorial planning and scheduling
 - **Naviga Archive**: Long-term content archival
-- **Third-party CMSes**: WordPress, Drupal, etc.
+- **Third-party CMSes**: WordPress, Drupal, custom systems
+- **DAM Systems**: Media asset management
+- **Analytics Platforms**: Content performance tracking
 
 ## Performance Benchmarks
 
-Naviga has published performance benchmarks:
+Naviga has demonstrated performance at scale:
 
 **Document Operations**
 - Create: < 50ms (p95)
@@ -232,27 +240,81 @@ Naviga has published performance benchmarks:
 - 10K+ requests/second
 - 99.99% uptime
 
-## Future Roadmap (Naviga-Driven)
+## Case Studies
 
-Based on Naviga's enterprise customer needs:
+### Large European News Agency
+
+- 500+ journalists
+- 5000+ articles per day
+- Multi-language support (12 languages)
+- Integration with legacy systems
+- 99.95% uptime SLA
+
+**Results**: 40% faster article creation, improved collaboration, better search relevance
+
+### Regional Newspaper Group
+
+- 20+ publications
+- Centralized content repository
+- Multi-tenancy
+- Shared media library
+
+**Results**: Single platform for all publications, improved content reuse, streamlined workflows
+
+## Relationship with TT
+
+TT (Tidningarnas Telegrambyrå), acquired by Naviga, hosts the GitHub repositories and maintains the open-source presence:
+
+- **GitHub Organization**: https://github.com/ttab
+- **Repository Hosting**: Public repositories under ttab organization
+- **Community Management**: Issue tracking, discussions
+- **Open Source Licensing**: MIT and similar permissive licenses
+
+The development and architectural decisions are made by Naviga, with TT providing the organizational structure for the open-source community.
+
+## NavigaDoc Format
+
+The document format used by Elephant originates from Naviga's extensive experience with editorial systems:
+
+**Origins**
+- Evolved from Naviga's editorial product suite
+- Designed for structured content
+- Optimized for collaborative editing
+- Extensible block-based architecture
+
+**Key Features**
+- Block-based content (paragraphs, headings, images)
+- Rich metadata support
+- Link relationships
+- Schema validation
+- Version-friendly structure
+
+**Evolution**
+- NewsDoc is the open-source specification
+- Compatible with Revisor validation
+- Extensible for custom content types
+- Used across Naviga products
+
+## Future Roadmap
+
+Based on Naviga's product direction:
 
 **Planned Features**
-- GraphQL API
-- Advanced workflow engine
-- Enhanced reporting and analytics
-- AI/ML integration hooks
-- Multi-region support
-- Edge deployment options
+- Enhanced AI integration
+- Advanced analytics
+- Improved real-time collaboration
+- Extended API capabilities
+- Mobile-first enhancements
 
 **Infrastructure**
 - Kubernetes operator
 - Serverless deployment options
-- Service mesh native integration
-- GitOps deployment patterns
+- Edge computing support
+- Multi-region active-active
 
-## Community Contributions
+## Contributing to Elephant
 
-Naviga encourages community contributions:
+Naviga welcomes community contributions:
 
 **How to Contribute**
 1. File issues for bugs or feature requests
@@ -265,59 +327,28 @@ Naviga encourages community contributions:
 - Follow Go and React best practices
 - Include tests for new features
 - Update documentation
-- Sign Contributor License Agreement (CLA)
+- Sign Contributor License Agreement (CLA) if required
 
-## Case Studies
+## Summary
 
-### Large European News Agency
+Naviga designed and built Elephant as an enterprise-grade editorial system:
 
-Naviga helped deploy Elephant for a news agency with:
-- 500+ journalists
-- 5000+ articles per day
-- Multi-language support (12 languages)
-- Integration with legacy systems
-- 99.95% uptime SLA
+**Core Contributions**
+- ✅ Initial architecture and design decisions
+- ✅ NavigaDoc document format
+- ✅ Event sourcing implementation
+- ✅ Multi-tenancy model
+- ✅ Production infrastructure
+- ✅ Enterprise features
+- ✅ Open source commitment
+- ✅ Commercial support
 
-**Results**
-- 40% faster article creation
-- Improved collaboration
-- Better search relevance
-- Reduced infrastructure costs
+**For Organizations**
+- **Open Source Path**: Self-hosted, community support
+- **Enterprise Path**: Naviga-hosted or supported deployments
+- **Hybrid Path**: Mix of community and commercial features
 
-### Regional Newspaper Group
-
-Deployment for newspaper group with:
-- 20+ publications
-- Centralized content repository
-- Multi-tenancy
-- Shared media library
-
-**Results**
-- Single platform for all publications
-- Improved content reuse
-- Streamlined workflows
-- Reduced licensing costs
-
-## Comparison with TT's Original Vision
-
-### TT's Vision
-- Open source document repository
-- NewsDoc format
-- Event sourcing architecture
-- Simple, focused scope
-
-### Naviga's Enhancements
-- Enterprise-grade features
-- Production deployments at scale
-- Integration ecosystem
-- Commercial support model
-- Continued open source commitment
-
-Both TT and Naviga share commitment to:
-- Open standards
-- Extensibility
-- Community engagement
-- Quality engineering
+All paths benefit from Naviga's continued investment and architectural vision.
 
 ## Resources
 
@@ -339,35 +370,16 @@ Both TT and Naviga share commitment to:
 
 ## Acknowledgments
 
-Elephant's success is due to contributions from:
-- **TT**: Original vision and core architecture
-- **Naviga**: Enterprise features and production readiness
-- **Community**: Bug reports, feature requests, documentation
+Elephant's success is due to:
+- **Naviga**: Architecture, design, implementation, and ongoing development
+- **TT**: Open source hosting and community management
+- **Community**: Bug reports, feature requests, documentation improvements
 - **Partners**: Integration testing and feedback
-
-## Summary
-
-Naviga's contributions have transformed Elephant from a promising open-source project into a battle-tested, enterprise-ready editorial system. Their commitment to open source ensures the community continues to benefit from their investments while enterprises get the support and features they need for production deployments.
-
-Key contributions:
-✅ Production-ready deployments
-✅ Enterprise security and compliance
-✅ Performance at scale
-✅ Comprehensive monitoring
-✅ Integration ecosystem
-✅ Commercial support
-✅ Open source commitment
-
-For organizations considering Elephant:
-- **Open Source Path**: Self-hosted, community support
-- **Enterprise Path**: Naviga-hosted or supported deployments
-- **Hybrid Path**: Mix of community and commercial features
-
-Both paths benefit from Naviga's continued investment in the platform.
+- **Contributors**: Code contributions and extensions
 
 ## Further Reading
 
-- [TT's Original Design](ttab.md)
-- [Community Contributions](community.md)
-- [System Architecture](../01-overview/system-architecture.md)
-- [Design Decisions](../12-architecture/design-decisions.md)
+- [TT's Role](ttab.md) - TT's involvement and open source management
+- [Community Contributions](community.md) - Community-driven improvements
+- [System Architecture](../01-overview/system-architecture.md) - Technical architecture overview
+- [Design Decisions](../12-architecture/design-decisions.md) - Why specific architectural choices were made
