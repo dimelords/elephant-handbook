@@ -352,4 +352,4 @@ HTTPS → Load Balancer → Ingress Controller
 
 - [Component Map](component-map.md) - Detailed component descriptions
 - [Dependencies](dependencies.md) - Version requirements and dependency graph
-- [Design Decisions](design-decisions.md) - Architectural rationale
+- [Design Decisions](../12-architecture/design-decisions.md) - Architectural rationale

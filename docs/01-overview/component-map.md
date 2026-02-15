@@ -260,4 +260,4 @@ See [Environment Variables](../07-configuration/environment-variables.md) for co
 
 - [System Architecture](system-architecture.md)
 - [Dependencies](dependencies.md)
-- [Design Decisions](design-decisions.md)
+- [Design Decisions](../12-architecture/design-decisions.md)
