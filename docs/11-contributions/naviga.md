@@ -370,4 +370,4 @@ Both paths benefit from Naviga's continued investment in the platform.
 - [TT's Original Design](ttab.md)
 - [Community Contributions](community.md)
 - [System Architecture](../01-overview/system-architecture.md)
-- [Design Decisions](../01-overview/design-decisions.md)
+- [Design Decisions](../12-architecture/design-decisions.md)

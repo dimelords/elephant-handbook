@@ -46,7 +46,6 @@ cd elephant-handbook
 - [System Architecture](docs/01-overview/system-architecture.md) - High-level architecture and component interaction
 - [Component Map](docs/01-overview/component-map.md) - All services, libraries, and their roles
 - [Dependencies](docs/01-overview/dependencies.md) - Dependency graph and version requirements
-- [Design Decisions](docs/01-overview/design-decisions.md) - Why messages vs CDC, architectural choices
 
 ### 🔧 02. Components
 - [elephant-repository](docs/02-components/elephant-repository.md) - Core document storage with versioning and ACLs
@@ -124,6 +123,9 @@ cd elephant-handbook
 - [Naviga](docs/11-contributions/naviga.md) - Naviga's contributions to the ecosystem
 - [TT](docs/11-contributions/ttab.md) - TT's original design and vision
 - [Community](docs/11-contributions/community.md) - Community contributions and roadmap
+
+### 🏗️ 12. Architecture (Advanced)
+- [Design Decisions](docs/12-architecture/design-decisions.md) - Why messages vs CDC, architectural choices and rationale
 
 ## Repository Organization
 
