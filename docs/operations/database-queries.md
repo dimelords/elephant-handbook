@@ -595,5 +595,5 @@ VALUES (
 ## See Also
 
 - [Database Schema](../05-infrastructure/database.md) - Database design and migrations
-- [Backup Script](../../scripts/backup.sh) - Automated backup solution
+- [Backup Guide](../operations/backup-restore.md) - Backup and restore procedures
 - [Monitoring](../08-observability/metrics.md) - Database monitoring setup
