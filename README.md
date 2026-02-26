@@ -79,7 +79,6 @@ This script will:
   - [AWS](docs/04-deployment/terraform/aws.md) - AWS infrastructure as code
   - [GCP](docs/04-deployment/terraform/gcp.md) - GCP infrastructure (if applicable)
   - [Modules](docs/04-deployment/terraform/modules.md) - Reusable Terraform modules
-- [Fly.io](docs/04-deployment/flyio.md) - Fly.io deployment (current Dimelords setup)
 
 ### 🏗️ 05. Infrastructure
 - [PostgreSQL](docs/05-infrastructure/postgresql.md) - Database setup, migrations, and replication
