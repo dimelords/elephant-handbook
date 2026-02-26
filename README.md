@@ -27,12 +27,15 @@ Elephant is a document repository system designed for editorial content manageme
 git clone https://github.com/dimelords/elephant-handbook
 cd elephant-handbook
 
-# Run one-command setup
-./scripts/setup-dev.sh
-
-# Start all services
-./scripts/start-local.sh
+# Start all services with interactive script
+./scripts/start-elephant.sh
 ```
+
+This script will:
+- Start core services (PostgreSQL, Keycloak, MinIO, OpenSearch, Elephant services)
+- Optionally start spell service
+- Optionally start observability stack (Prometheus, Grafana, Loki, Tempo)
+- Show service URLs and credentials
 
 ### For Operators
 
@@ -158,12 +161,14 @@ cd elephant-handbook
 
 All scripts are in the `scripts/` directory:
 
-- `setup-dev.sh` - One-command development environment setup
-- `clone-all-repos.sh` - Clone all Elephant repositories
-- `sync-forks.sh` - Sync all forks with upstream TT repositories
-- `start-local.sh` - Start all services locally
-- `deploy-k8s.sh` - Deploy to Kubernetes
-- `backup.sh` - Backup databases and S3 objects
+- `start-elephant.sh` - Interactive script to start all services with Docker Compose
+- `setup-keycloak-fixed.sh` - Configure Keycloak realm and clients (called by start-elephant.sh)
+
+Additional scripts can be added for:
+- Cloning all Elephant repositories
+- Syncing forks with upstream TT repositories
+- Deploying to Kubernetes
+- Backing up databases and storage
 
 ## Infrastructure as Code
 
