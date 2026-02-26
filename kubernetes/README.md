@@ -2,55 +2,395 @@
 
 Production-ready Kubernetes manifests for Elephant using Kustomize.
 
-## Directory Structure
+## Deployment Options
 
-```
-kubernetes/
-├── base/                    # Base manifests
-│   ├── kustomization.yaml
-│   ├── namespace.yaml
-│   ├── postgres/
-│   ├── opensearch/
-│   ├── minio/
-│   ├── repository/
-│   ├── index/
-│   ├── user/
-│   └── chrome/
-├── overlays/
-│   ├── dev/                 # Development environment
-│   ├── staging/             # Staging environment
-│   └── production/          # Production environment
-└── helm/
-    └── elephant/            # Helm chart
+Choose the right deployment method for your needs:
+
+| Option | Best For | Setup Time | Resources | Cost | Production-Ready |
+|--------|----------|------------|-----------|------|------------------|
+| [Minikube](minikube/) | Local K8s testing | 5-10 min | 8GB RAM, 4 CPU | Free | No |
+| [Docker Compose](../docker-compose/) | Quick local dev | 2-5 min | 4GB RAM, 2 CPU | Free | No |
+| [Base Manifests](base/) | Self-managed K8s | 10-15 min | 16GB RAM, 8 CPU | Varies | Yes |
+| [AWS Terraform](../terraform/aws/) | AWS production | 15-20 min | Cloud | $200-1500/mo | Yes |
+
+### Quick Decision Guide
+
+- **Just want to try Elephant?** → Use [Docker Compose](../docker-compose/)
+- **Testing Kubernetes manifests?** → Use [Minikube](minikube/)
+- **Deploying to existing cluster?** → Use [Base Manifests](base/)
+- **Need complete AWS setup?** → Use [AWS Terraform](../terraform/aws/)
+
+## Overview
+
+This directory contains Kubernetes manifests to deploy the complete Elephant stack:
+
+- **Infrastructure**: PostgreSQL, Keycloak, MinIO, OpenSearch
+- **Services**: elephant-repository, elephant-index, elephant-user
+- **Configuration**: ConfigMaps, Secrets, PersistentVolumeClaims
+
+## Prerequisites
+
+- Kubernetes cluster (1.25+)
+- kubectl configured
+- Storage class named `standard` (or modify PVCs)
+- At least 16GB RAM and 4 CPU cores available
 
 ## Quick Start
 
-### Deploy to Development
+### Deploy Everything
 
 ```bash
-kubectl apply -k kubernetes/overlays/dev
+# Create namespace and deploy all services
+kubectl apply -k elephant-handbook/kubernetes/base
+
+# Watch deployment progress
+kubectl get pods -n elephant -w
+
+# Check service status
+kubectl get all -n elephant
 ```
 
-### Deploy to Production
+### Access Services
 
 ```bash
-kubectl apply -k kubernetes/overlays/production
+# Port forward to access services locally
+kubectl port-forward -n elephant svc/keycloak 8080:8080
+kubectl port-forward -n elephant svc/repository 1080:1080
+kubectl port-forward -n elephant svc/index 1082:1082
+kubectl port-forward -n elephant svc/user 1083:1083
+kubectl port-forward -n elephant svc/minio 9001:9001
 ```
 
-## Using Helm
+## Architecture
+
+### Infrastructure Layer
+
+**PostgreSQL** (StatefulSet)
+- Main database for all Elephant services
+- Includes init script with extensions and roles
+- 20Gi persistent storage
+- Single replica (can be scaled with replication)
+
+**Keycloak** (Deployment + StatefulSet for DB)
+- Authentication and authorization (OIDC)
+- Separate PostgreSQL database
+- 2 replicas for high availability
+- Admin credentials: admin/admin (change in production!)
+
+**MinIO** (StatefulSet)
+- S3-compatible object storage
+- Stores archived documents
+- 50Gi persistent storage
+- Includes init job to create buckets
+
+**OpenSearch** (StatefulSet)
+- Full-text search engine
+- 30Gi persistent storage
+- Requires vm.max_map_count=262144 (set by init container)
+
+### Application Layer
+
+**elephant-repository** (Deployment)
+- Document storage and versioning
+- 2 replicas with pod anti-affinity
+- Automatic database migrations on startup
+- Connects to PostgreSQL, MinIO, Keycloak
+
+**elephant-index** (Deployment)
+- Search indexing and percolation
+- 2 replicas for high availability
+- Connects to PostgreSQL, OpenSearch, repository
+
+**elephant-user** (Deployment)
+- User events and inbox
+- 2 replicas for high availability
+- Automatic database migrations on startup
+
+## Configuration
+
+### Secrets
+
+All secrets use default development values. For production:
 
 ```bash
-# Install
-helm install elephant ./kubernetes/helm/elephant \
-  --namespace elephant \
-  --create-namespace \
-  --values values-production.yaml
+# Update PostgreSQL credentials
+kubectl create secret generic postgres-credentials \
+  --from-literal=username=postgres \
+  --from-literal=password=STRONG_PASSWORD_HERE \
+  --from-literal=database=elephant \
+  --namespace=elephant \
+  --dry-run=client -o yaml | kubectl apply -f -
 
-# Upgrade
-helm upgrade elephant ./kubernetes/helm/elephant \
-  --namespace elephant \
-  --values values-production.yaml
+# Update Keycloak credentials
+kubectl create secret generic keycloak-credentials \
+  --from-literal=admin-username=admin \
+  --from-literal=admin-password=STRONG_PASSWORD_HERE \
+  --from-literal=db-username=postgres \
+  --from-literal=db-password=STRONG_PASSWORD_HERE \
+  --namespace=elephant \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Update MinIO credentials
+kubectl create secret generic minio-credentials \
+  --from-literal=root-user=minioadmin \
+  --from-literal=root-password=STRONG_PASSWORD_HERE \
+  --namespace=elephant \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
+
+### Resource Limits
+
+Current resource allocations:
+
+| Service | CPU Request | CPU Limit | Memory Request | Memory Limit |
+|---------|-------------|-----------|----------------|--------------|
+| postgres | 500m | 2000m | 1Gi | 4Gi |
+| keycloak | 500m | 2000m | 1Gi | 2Gi |
+| keycloak-postgres | 250m | 1000m | 512Mi | 2Gi |
+| minio | 500m | 2000m | 1Gi | 4Gi |
+| opensearch | 1000m | 2000m | 2Gi | 4Gi |
+| repository | 500m | 2000m | 512Mi | 2Gi |
+| index | 500m | 2000m | 512Mi | 2Gi |
+| user | 250m | 1000m | 256Mi | 1Gi |
+
+**Total minimum**: ~4 CPU, ~8Gi RAM  
+**Total with limits**: ~14 CPU, ~23Gi RAM
+
+Adjust based on your cluster capacity and workload.
+
+### Storage
+
+Persistent volumes required:
+
+| PVC | Size | Purpose |
+|-----|------|---------|
+| postgres-data | 20Gi | Main database |
+| keycloak-postgres-data | 5Gi | Keycloak database |
+| minio-data | 50Gi | Object storage |
+| opensearch-data | 30Gi | Search indexes |
+
+**Total**: 105Gi
+
+Ensure your cluster has a storage class named `standard` or modify the PVCs.
+
+## Deployment Order
+
+Services have init containers that wait for dependencies:
+
+1. **Infrastructure** (parallel):
+   - postgres
+   - keycloak-postgres
+   - minio
+   - opensearch
+
+2. **Keycloak** (after keycloak-postgres)
+
+3. **MinIO Init Job** (after minio)
+
+4. **Elephant Services** (after postgres, keycloak, minio, opensearch):
+   - repository
+   - index
+   - user
+
+Init containers ensure proper startup order automatically.
+
+## Operations
+
+### View Logs
+
+```bash
+# All pods in namespace
+kubectl logs -n elephant -l app.kubernetes.io/part-of=elephant --tail=100
+
+# Specific service
+kubectl logs -n elephant -l app=elephant-repository -f
+
+# PostgreSQL logs
+kubectl logs -n elephant -l app=postgres -f
+```
+
+### Scale Services
+
+```bash
+# Scale repository service
+kubectl scale deployment elephant-repository -n elephant --replicas=3
+
+# Scale index service
+kubectl scale deployment elephant-index -n elephant --replicas=3
+```
+
+### Database Access
+
+```bash
+# Connect to PostgreSQL
+kubectl exec -it -n elephant postgres-0 -- psql -U postgres -d elephant
+
+# Run SQL file
+kubectl exec -i -n elephant postgres-0 -- psql -U postgres -d elephant < schema.sql
+```
+
+### Backup Database
+
+```bash
+# Create backup
+kubectl exec -n elephant postgres-0 -- pg_dump -U postgres elephant > backup.sql
+
+# Restore backup
+kubectl exec -i -n elephant postgres-0 -- psql -U postgres elephant < backup.sql
+```
+
+### Update Configuration
+
+```bash
+# Edit ConfigMap
+kubectl edit configmap elephant-repository-config -n elephant
+
+# Restart deployment to pick up changes
+kubectl rollout restart deployment elephant-repository -n elephant
+```
+
+## Monitoring
+
+Services expose Prometheus metrics:
+
+- repository: `:1080/metrics`
+- index: `:1082/metrics`
+- user: `:1083/metrics`
+
+Pods are annotated for Prometheus scraping:
+
+```yaml
+annotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "1080"
+  prometheus.io/path: "/metrics"
+```
+
+## Troubleshooting
+
+### Pods Not Starting
+
+```bash
+# Check pod status
+kubectl get pods -n elephant
+
+# Describe pod for events
+kubectl describe pod <pod-name> -n elephant
+
+# Check logs
+kubectl logs <pod-name> -n elephant
+```
+
+### Database Connection Issues
+
+```bash
+# Test PostgreSQL connectivity
+kubectl run -it --rm debug --image=postgres:16-alpine --restart=Never -n elephant -- \
+  psql -h postgres -U postgres -d elephant
+
+# Check if database exists
+kubectl exec -it postgres-0 -n elephant -- psql -U postgres -l
+```
+
+### Storage Issues
+
+```bash
+# Check PVC status
+kubectl get pvc -n elephant
+
+# Check PV status
+kubectl get pv
+
+# Describe PVC for events
+kubectl describe pvc postgres-data -n elephant
+```
+
+### OpenSearch Not Starting
+
+OpenSearch requires `vm.max_map_count=262144`. The init container sets this, but it requires privileged access.
+
+If pods fail with "max virtual memory areas" error:
+
+```bash
+# On each node (or via DaemonSet)
+sudo sysctl -w vm.max_map_count=262144
+
+# Make permanent
+echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+```
+
+## Cleanup
+
+### Remove Everything
+
+```bash
+# Delete all resources
+kubectl delete -k elephant-handbook/kubernetes/base
+
+# Delete namespace (removes everything)
+kubectl delete namespace elephant
+```
+
+### Keep Data
+
+To remove services but keep data (PVCs):
+
+```bash
+# Delete deployments and services
+kubectl delete deployment,service,statefulset -n elephant --all
+
+# PVCs remain - redeploy to reuse data
+kubectl apply -k elephant-handbook/kubernetes/base
+```
+
+## Production Considerations
+
+### Security
+
+1. **Change default passwords** in all secrets
+2. **Enable TLS** for all services
+3. **Use network policies** to restrict traffic
+4. **Enable RBAC** with least privilege
+5. **Use external secrets** (AWS Secrets Manager, Vault)
+
+### High Availability
+
+1. **PostgreSQL**: Use managed database (RDS, Cloud SQL) or PostgreSQL operator
+2. **Keycloak**: Already 2 replicas, consider 3+ for production
+3. **MinIO**: Use distributed mode (4+ nodes) or managed S3
+4. **OpenSearch**: Use 3+ nodes with proper shard allocation
+
+### Monitoring
+
+1. **Deploy Prometheus** to scrape metrics
+2. **Deploy Grafana** with dashboards (see `configs/observability/`)
+3. **Set up alerts** for critical issues
+4. **Enable logging** to centralized system (Loki, CloudWatch)
+
+### Backups
+
+1. **Database**: Regular pg_dump or use backup operator
+2. **MinIO**: Enable versioning and replication
+3. **OpenSearch**: Snapshot to S3
+4. **Disaster recovery**: Test restore procedures
+
+## Next Steps
+
+1. **Configure Keycloak**: Create realm, client, users (see docs)
+2. **Load schemas**: Use eleconf to configure document types
+3. **Deploy frontend**: Add elephant-chrome deployment
+4. **Set up ingress**: Expose services externally
+5. **Enable monitoring**: Deploy observability stack
+
+## See Also
+
+- [Minikube Setup](minikube/) - Local Kubernetes testing
+  - [Quick Reference](minikube/QUICKREF.md) - One-page cheat sheet
+- [Docker Compose Setup](../docker-compose/README.md) - Local development
+- [AWS Terraform](../terraform/aws/) - Cloud deployment
+- [Configuration Guide](../docs/configuration/) - Schema and workflow setup
+- [Observability](../docs/operations/observability.md) - Monitoring setup
+- [Deployment Guide](DEPLOYMENT-GUIDE.md) - Detailed deployment instructions
 
 ## Prerequisites
 
@@ -171,7 +511,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
 
 # Add Elephant dashboards
 kubectl create configmap elephant-dashboards \
-  --from-file=configs/grafana/dashboards/ \
+  --from-file=configs/observability/grafana/dashboards/ \
   --namespace monitoring
 ```
 

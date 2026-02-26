@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elephant-user-config
+data:
+  LOG_LEVEL: "info"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elephant-user
+  labels:
+    app: elephant-user
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: elephant-user
+  template:
+    metadata:
+      labels:
+        app: elephant-user
+        component: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "1083"
+        prometheus.io/path: "/metrics"
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+      containers:
+        - name: user
+          image: ghcr.io/dimelords/elephant-user:latest
+          ports:
+            - containerPort: 1083
+              name: http
+          env:
+            - name: CONN_STRING
+              value: "postgres://postgres:postgres@postgres:5432/elephant?sslmode=disable"
+            - name: MIGRATE_DB
+              value: "true"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: elephant-user-config
+                  key: LOG_LEVEL
+            - name: OIDC_CONFIG
+              value: "http://keycloak:8080/realms/elephant/.well-known/openid-configuration"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 1083
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 1083
+            initialDelaySeconds: 10
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user
+  labels:
+    app: elephant-user
+spec:
+  type: ClusterIP
+  ports:
+    - port: 1083
+      targetPort: 1083
+      protocol: TCP
+      name: http
+  selector:
+    app: elephant-user

@@ -1,0 +1,18 @@
+# GCP Project Configuration
+project_id  = "your-gcp-project-id"
+region      = "europe-west1"
+environment = "dev"
+
+# Database Password (use strong password!)
+db_password = "change-me-to-strong-password"
+
+# Optional: Customize network
+# subnet_cidr = "10.0.0.0/20"
+# pods_cidr   = "10.4.0.0/14"
+
+# Optional: Customize GKE
+# machine_type = "e2-standard-4"
+# node_count_per_zone = 1
+
+# Optional: Use spot instances for cost savings (dev only)
+# use_spot_instances = true

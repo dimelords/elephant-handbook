@@ -5,13 +5,14 @@ namespace: elephant
 
 resources:
   - namespace.yaml
-  - postgres/
-  - opensearch/
-  - minio/
-  - repository/
-  - index/
-  - user/
-  - chrome/
+  - postgres.yaml
+  - keycloak.yaml
+  - minio.yaml
+  - opensearch.yaml
+  - repository/deployment.yaml
+  - elephant-index.yaml
+  - elephant-user.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: elephant
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: elephant

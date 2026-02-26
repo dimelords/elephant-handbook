@@ -1,32 +1,32 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: elephant-repository-config
+  name: elephant-index-config
 data:
-  S3_ENDPOINT: "http://minio:9000"
-  S3_BUCKET: "elephant-archive"
+  OPENSEARCH_URL: "http://opensearch:9200"
+  REPOSITORY_URL: "http://repository:1080"
   LOG_LEVEL: "info"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: elephant-repository
+  name: elephant-index
   labels:
-    app: elephant-repository
+    app: elephant-index
     component: backend
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: elephant-repository
+      app: elephant-index
   template:
     metadata:
       labels:
-        app: elephant-repository
+        app: elephant-index
         component: backend
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "1080"
+        prometheus.io/port: "1082"
         prometheus.io/path: "/metrics"
     spec:
       initContainers:
@@ -40,45 +40,39 @@ spec:
                 echo "Waiting for PostgreSQL..."
                 sleep 2
               done
-        - name: wait-for-minio
+        - name: wait-for-opensearch
           image: busybox:latest
           command:
             - sh
             - -c
             - |
-              until nc -z minio 9000; do
-                echo "Waiting for MinIO..."
+              until nc -z opensearch 9200; do
+                echo "Waiting for OpenSearch..."
                 sleep 2
               done
       containers:
-        - name: repository
-          image: ghcr.io/dimelords/elephant-repository:latest
+        - name: index
+          image: ghcr.io/dimelords/elephant-index:latest
           ports:
-            - containerPort: 1080
+            - containerPort: 1082
               name: http
           env:
             - name: CONN_STRING
               value: "postgres://postgres:postgres@postgres:5432/elephant?sslmode=disable"
-            - name: MIGRATE_DB
-              value: "true"
-            - name: S3_ENDPOINT
+            - name: OPENSEARCH_URL
               valueFrom:
                 configMapKeyRef:
-                  name: elephant-repository-config
-                  key: S3_ENDPOINT
-            - name: S3_BUCKET
+                  name: elephant-index-config
+                  key: OPENSEARCH_URL
+            - name: REPOSITORY_URL
               valueFrom:
                 configMapKeyRef:
-                  name: elephant-repository-config
-                  key: S3_BUCKET
-            - name: S3_ACCESS_KEY_ID
-              value: "minioadmin"
-            - name: S3_ACCESS_KEY_SECRET
-              value: "minioadmin"
+                  name: elephant-index-config
+                  key: REPOSITORY_URL
             - name: LOG_LEVEL
               valueFrom:
                 configMapKeyRef:
-                  name: elephant-repository-config
+                  name: elephant-index-config
                   key: LOG_LEVEL
             - name: OIDC_CONFIG
               value: "http://keycloak:8080/realms/elephant/.well-known/openid-configuration"
@@ -92,40 +86,28 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 1080
+              port: 1082
             initialDelaySeconds: 30
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 1080
+              port: 1082
             initialDelaySeconds: 10
             periodSeconds: 5
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - elephant-repository
-                topologyKey: kubernetes.io/hostname
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: repository
+  name: index
   labels:
-    app: elephant-repository
+    app: elephant-index
 spec:
   type: ClusterIP
   ports:
-    - port: 1080
-      targetPort: 1080
+    - port: 1082
+      targetPort: 1082
       protocol: TCP
       name: http
   selector:
-    app: elephant-repository
+    app: elephant-index
