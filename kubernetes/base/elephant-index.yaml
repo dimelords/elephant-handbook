@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elephant-index-config
+data:
+  OPENSEARCH_URL: "http://opensearch:9200"
+  REPOSITORY_URL: "http://repository:1080"
+  LOG_LEVEL: "info"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elephant-index
+  labels:
+    app: elephant-index
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: elephant-index
+  template:
+    metadata:
+      labels:
+        app: elephant-index
+        component: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "1082"
+        prometheus.io/path: "/metrics"
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+        - name: wait-for-opensearch
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z opensearch 9200; do
+                echo "Waiting for OpenSearch..."
+                sleep 2
+              done
+      containers:
+        - name: index
+          image: ghcr.io/dimelords/elephant-index:latest
+          ports:
+            - containerPort: 1082
+              name: http
+          env:
+            - name: CONN_STRING
+              value: "postgres://postgres:postgres@postgres:5432/elephant?sslmode=disable"
+            - name: OPENSEARCH_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: elephant-index-config
+                  key: OPENSEARCH_URL
+            - name: REPOSITORY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: elephant-index-config
+                  key: REPOSITORY_URL
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: elephant-index-config
+                  key: LOG_LEVEL
+            - name: OIDC_CONFIG
+              value: "http://keycloak:8080/realms/elephant/.well-known/openid-configuration"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 1082
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 1082
+            initialDelaySeconds: 10
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: index
+  labels:
+    app: elephant-index
+spec:
+  type: ClusterIP
+  ports:
+    - port: 1082
+      targetPort: 1082
+      protocol: TCP
+      name: http
+  selector:
+    app: elephant-index

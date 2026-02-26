@@ -6,16 +6,22 @@ This directory contains ready-to-use configuration files for Elephant infrastruc
 
 ```
 configs/
-├── grafana/
-│   └── dashboards/          # Pre-built Grafana dashboards
-│       ├── elephant-overview.json
-│       ├── elephant-repository.json
-│       └── elephant-frontend.json
-├── prometheus/
-│   ├── alerts.yml          # Alert rules
-│   └── prometheus.yml      # Prometheus configuration
+├── observability/           # Monitoring and observability stack
+│   ├── grafana/
+│   │   ├── dashboards/     # Pre-built Grafana dashboards
+│   │   └── provisioning/   # Grafana provisioning configs
+│   ├── prometheus/
+│   │   ├── alerts.yml      # Alert rules
+│   │   └── prometheus.yml  # Prometheus configuration
+│   ├── tempo/              # Distributed tracing config
+│   ├── loki/               # Log aggregation config
+│   └── alloy/              # Faro receiver config
+├── opensearch/
+│   ├── Dockerfile          # Custom OpenSearch with ICU plugin
+│   └── README.md           # OpenSearch configuration docs
 └── database/
-    └── init.sql            # Initial database setup
+    ├── init.sql            # Initial database setup
+    └── README.md           # Database configuration docs
 ```
 
 ## Usage
@@ -50,7 +56,7 @@ rule_files:
 Or mount in Docker:
 ```yaml
 volumes:
-  - ./configs/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+  - ./configs/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml
 ```
 
 ### Database Initialization

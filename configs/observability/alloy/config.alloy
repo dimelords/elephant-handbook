@@ -1,0 +1,52 @@
+// Grafana Alloy Configuration
+// Receives Faro telemetry and forwards to Tempo, Loki, and Prometheus
+
+// Faro Receiver - accepts frontend telemetry
+faro.receiver "default" {
+  server {
+    listen_address = "0.0.0.0"
+    listen_port = 12346
+    cors_allowed_origins = ["http://localhost:5183"]
+  }
+
+  extra_log_labels = {
+    app = "elephant-chrome",
+  }
+
+  output {
+    logs   = [loki.write.default.receiver]
+    traces = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+// OTLP Exporter for Tempo (traces)
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+    tls {
+      insecure = true
+    }
+  }
+}
+
+// Loki Writer (logs)
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// Prometheus Remote Write (metrics)
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+// Optional: Scrape Alloy's own metrics
+prometheus.scrape "alloy" {
+  targets = [{
+    __address__ = "localhost:12345",
+  }]
+  forward_to = [prometheus.remote_write.default.receiver]
+}

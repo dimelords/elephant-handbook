@@ -1,0 +1,49 @@
+# Example Terraform variables file
+# Copy to terraform.tfvars and customize for your environment
+
+# Core Configuration
+environment  = "dev"
+region       = "us-east-1"
+project_name = "elephant"
+
+# Network Configuration
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+
+# Database Configuration
+db_instance_class           = "db.t3.medium"  # dev: db.t3.medium, prod: db.r5.xlarge
+db_allocated_storage        = 100
+db_max_allocated_storage    = 500
+db_backup_retention_period  = 7
+db_multi_az                 = false  # Set to true for production
+
+# EKS Configuration
+eks_cluster_version     = "1.28"
+eks_node_instance_types = ["t3.large"]
+eks_node_desired_size   = 3
+eks_node_min_size       = 2
+eks_node_max_size       = 10
+
+# S3 Configuration
+s3_archive_lifecycle_glacier_days      = 90
+s3_archive_lifecycle_deep_archive_days = 365
+
+# OpenSearch Configuration
+opensearch_instance_type  = "t3.medium.search"  # dev: t3.medium.search, prod: r5.large.search
+opensearch_instance_count = 1  # prod: 3 for high availability
+opensearch_ebs_volume_size = 100
+
+# Monitoring
+enable_cloudwatch_logs = true
+log_retention_days     = 30
+
+# Secrets
+enable_secrets_rotation = false  # Set to true for production
+
+# Tags
+common_tags = {
+  Project     = "Elephant"
+  ManagedBy   = "Terraform"
+  Team        = "Platform"
+  CostCenter  = "Engineering"
+}

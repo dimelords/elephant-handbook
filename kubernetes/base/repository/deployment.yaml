@@ -1,3 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elephant-repository-config
+data:
+  S3_ENDPOINT: "http://minio:9000"
+  S3_BUCKET: "elephant-archive"
+  LOG_LEVEL: "info"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,43 +29,59 @@ spec:
         prometheus.io/port: "1080"
         prometheus.io/path: "/metrics"
     spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+        - name: wait-for-minio
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z minio 9000; do
+                echo "Waiting for MinIO..."
+                sleep 2
+              done
       containers:
         - name: repository
           image: ghcr.io/dimelords/elephant-repository:latest
           ports:
             - containerPort: 1080
               name: http
-              protocol: TCP
           env:
             - name: CONN_STRING
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-connection
-                  key: connection-string
+              value: "postgres://postgres:postgres@postgres:5432/elephant?sslmode=disable"
+            - name: MIGRATE_DB
+              value: "true"
             - name: S3_ENDPOINT
               valueFrom:
                 configMapKeyRef:
-                  name: elephant-config
-                  key: s3-endpoint
+                  name: elephant-repository-config
+                  key: S3_ENDPOINT
             - name: S3_BUCKET
-              value: elephant-archive
+              valueFrom:
+                configMapKeyRef:
+                  name: elephant-repository-config
+                  key: S3_BUCKET
             - name: S3_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: s3-credentials
-                  key: access-key-id
+              value: "minioadmin"
             - name: S3_ACCESS_KEY_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: s3-credentials
-                  key: secret-access-key
-            - name: JWT_SIGNING_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: jwt-signing-key
-                  key: private-key
+              value: "minioadmin"
             - name: LOG_LEVEL
-              value: info
+              valueFrom:
+                configMapKeyRef:
+                  name: elephant-repository-config
+                  key: LOG_LEVEL
+            - name: OIDC_CONFIG
+              value: "http://keycloak:8080/realms/elephant/.well-known/openid-configuration"
           resources:
             requests:
               cpu: 500m
@@ -70,14 +95,12 @@ spec:
               port: 1080
             initialDelaySeconds: 30
             periodSeconds: 10
-            timeoutSeconds: 5
           readinessProbe:
             httpGet:
-              path: /ready
+              path: /healthz
               port: 1080
             initialDelaySeconds: 10
             periodSeconds: 5
-            timeoutSeconds: 3
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -94,7 +117,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: elephant-repository
+  name: repository
   labels:
     app: elephant-repository
 spec:
@@ -106,12 +129,3 @@ spec:
       name: http
   selector:
     app: elephant-repository
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: elephant-config
-data:
-  s3-endpoint: "http://minio:9000"
-  repository-url: "http://elephant-repository:1080"
-  index-url: "http://elephant-index:1081"

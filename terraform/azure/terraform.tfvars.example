@@ -1,0 +1,17 @@
+# Azure Configuration
+environment = "dev"
+location    = "westeurope"
+
+# Database Password (use strong password!)
+db_password = "change-me-to-strong-password"
+
+# Optional: Customize network
+# vnet_cidr = "10.0.0.0/16"
+# aks_subnet_cidr = "10.0.0.0/20"
+
+# Optional: Customize AKS
+# vm_size = "Standard_D4s_v3"
+# node_count = 2
+
+# Optional: Customize database
+# db_sku_name = "B_Standard_B2s"

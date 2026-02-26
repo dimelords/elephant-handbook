@@ -1,0 +1,61 @@
+# Elephant Spell Service
+# Optional spellcheck service based on hunspell
+
+services:
+  # elephant-spell migration init container
+  spell-migrate:
+    image: postgres:16-alpine
+    restart: "no"
+    volumes:
+      - ../../elephant-spell/schema:/schema:ro
+    command:
+      - sh
+      - -c
+      - |
+        echo 'Running elephant-spell migrations...';
+        
+        # Check if database exists, create if not
+        psql postgres://postgres:postgres@postgres:5432/postgres -c "SELECT 1 FROM pg_database WHERE datname='elephant_spell'" | grep -q 1 || \
+        psql postgres://postgres:postgres@postgres:5432/postgres -c 'CREATE DATABASE "elephant_spell"';
+        
+        # Run migrations in order (only the "create" part above the marker)
+        for migration in /schema/001_spell.sql /schema/002_forms.sql /schema/003_job_lock.sql; do
+          echo "Running $$(basename $$migration)...";
+          # Extract only the part above "---- create above / drop below ----"
+          sed '/^---- create above \/ drop below ----/,$$d' "$$migration" | \
+          psql postgres://postgres:postgres@postgres:5432/elephant_spell
+        done
+        
+        echo 'All migrations completed successfully';
+    networks:
+      - elephant-net
+
+  # elephant-spell - Spellcheck service
+  spell:
+    build:
+      context: ../../elephant-spell
+      dockerfile: Dockerfile
+    depends_on:
+      spell-migrate:
+        condition: service_completed_successfully
+    environment:
+      CONN_STRING: "postgres://postgres:postgres@postgres:5432/elephant_spell?sslmode=disable"
+      OIDC_CONFIG: "http://keycloak:8080/realms/elephant/.well-known/openid-configuration"
+      JWT_AUDIENCE: "elephant"
+      CLIENT_ID: "elephant"
+      LOG_LEVEL: debug
+    ports:
+      - "1084:1081"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:1081/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - elephant-net
+    restart: unless-stopped
+
+networks:
+  elephant-net:
+    external: true
+    name: elephant-net

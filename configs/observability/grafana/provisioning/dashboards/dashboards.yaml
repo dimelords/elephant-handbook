@@ -1,0 +1,15 @@
+# Grafana Dashboard Provisioning
+# Automatically loads dashboards from filesystem
+
+apiVersion: 1
+
+providers:
+  - name: 'Elephant Dashboards'
+    orgId: 1
+    folder: 'Elephant'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

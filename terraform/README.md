@@ -1,508 +1,378 @@
 # Terraform Infrastructure
 
-Infrastructure as Code for deploying Elephant on cloud providers.
+Production-ready Terraform configurations for deploying Elephant to AWS, GCP, or Azure.
 
-## Directory Structure
+## Cloud Provider Options
 
+Choose the cloud provider that best fits your needs:
+
+| Provider | Directory | Best For | Dev Cost | Prod Cost | Guide |
+|----------|-----------|----------|----------|-----------|-------|
+| **AWS** | [aws/](aws/) | Mature ecosystem, wide service selection | ~$200/mo | ~$800-1500/mo | [AWS README](aws/README.md) |
+| **GCP** | [gcp/](gcp/) | Kubernetes-native, competitive pricing | ~$200-300/mo | ~$800-1200/mo | [GCP README](gcp/README.md) |
+| **Azure** | [azure/](azure/) | Enterprise integration, hybrid cloud | ~$250-350/mo | ~$1000-1500/mo | [Azure README](azure/README.md) |
+
+### Quick Decision Guide
+
+- **Already using AWS?** → Use [AWS](aws/) - Most mature, widest service selection
+- **Kubernetes-first approach?** → Use [GCP](gcp/) - Best GKE experience, Workload Identity
+- **Microsoft ecosystem?** → Use [Azure](azure/) - Seamless integration with Microsoft services
+- **Best pricing?** → Compare all three for your specific region and usage
+
+**Need help choosing?** See the [detailed comparison guide](COMPARISON.md).
+
+## What Gets Created
+
+All configurations provide equivalent infrastructure:
+
+### Compute
+- **AWS**: EKS (Elastic Kubernetes Service)
+- **GCP**: GKE (Google Kubernetes Engine)
+- **Azure**: AKS (Azure Kubernetes Service)
+
+### Database
+- **AWS**: RDS PostgreSQL 16
+- **GCP**: Cloud SQL PostgreSQL 16
+- **Azure**: Azure Database for PostgreSQL Flexible Server 16
+
+### Storage
+- **AWS**: S3 with lifecycle policies
+- **GCP**: Cloud Storage with lifecycle management
+- **Azure**: Blob Storage with versioning
+
+### Networking
+- **AWS**: VPC with public/private subnets
+- **GCP**: VPC with Cloud NAT
+- **Azure**: VNet with subnets
+
+### Security
+- **AWS**: IAM roles with IRSA, Secrets Manager
+- **GCP**: Workload Identity, Secret Manager
+- **Azure**: Managed Identity, Key Vault
+
+### Monitoring
+- **AWS**: CloudWatch
+- **GCP**: Cloud Monitoring & Logging
+- **Azure**: Log Analytics & Azure Monitor
+
+## Prerequisites
+
+### All Providers
+
+- Terraform 1.5 or later
+- kubectl for Kubernetes management
+- Active cloud account with billing enabled
+
+### Provider-Specific
+
+**AWS**:
+```bash
+# Install AWS CLI
+brew install awscli
+
+# Configure
+aws configure
 ```
-terraform/
-├── aws/                    # AWS infrastructure
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── modules/
-│       ├── vpc/
-│       ├── rds/
-│       ├── s3/
-│       ├── opensearch/
-│       └── eks/
-├── gcp/                    # GCP infrastructure
-│   ├── main.tf
-│   ├── variables.tf
-│   └── modules/
-└── shared/                 # Shared modules
-    ├── monitoring/
-    └── secrets/
+
+**GCP**:
+```bash
+# Install gcloud
+brew install google-cloud-sdk
+
+# Login
+gcloud auth login
+gcloud auth application-default login
 ```
 
-## AWS Deployment
+**Azure**:
+```bash
+# Install Azure CLI
+brew install azure-cli
 
-### Prerequisites
+# Login
+az login
+```
 
-- AWS CLI configured
-- Terraform 1.5+
-- Appropriate AWS permissions
+## Quick Start
 
-### Quick Start
+### 1. Choose Your Cloud
 
 ```bash
-cd terraform/aws
+# AWS
+cd elephant-handbook/terraform/aws
 
+# GCP
+cd elephant-handbook/terraform/gcp
+
+# Azure
+cd elephant-handbook/terraform/azure
+```
+
+### 2. Configure Variables
+
+```bash
+# Copy example
+cp terraform.tfvars.example terraform.tfvars
+
+# Edit with your values
+vim terraform.tfvars
+```
+
+### 3. Deploy
+
+```bash
 # Initialize
 terraform init
 
-# Plan
-terraform plan -var-file=environments/production.tfvars
+# Plan (review changes)
+terraform plan -var-file=environments/dev.tfvars
 
-# Apply
-terraform apply -var-file=environments/production.tfvars
+# Apply (create resources)
+terraform apply -var-file=environments/dev.tfvars
 ```
 
-### What Gets Created
+Takes 15-20 minutes.
 
-**Network**
-- VPC with public and private subnets
-- NAT Gateways
-- Security Groups
-- Load Balancers
-
-**Compute**
-- EKS cluster with node groups
-- Auto-scaling groups
-
-**Storage**
-- RDS PostgreSQL 16 (Multi-AZ)
-- S3 buckets for archives
-- EBS volumes
-
-**Search**
-- AWS OpenSearch Service
-
-**Monitoring**
-- CloudWatch Log Groups
-- CloudWatch Alarms
-- SNS Topics for alerts
-
-**Security**
-- IAM Roles and Policies
-- Secrets Manager for credentials
-- ACM certificates
-
-### Cost Estimate
-
-**Development** (~$200/month)
-- EKS: $73/month (control plane)
-- RDS: db.t3.medium (~$60/month)
-- OpenSearch: t3.small (~$30/month)
-- Data transfer & storage: ~$37/month
-
-**Production** (~$800-1500/month)
-- EKS: $73/month (control plane)
-- RDS: db.r5.xlarge Multi-AZ (~$400/month)
-- OpenSearch: r5.large 3-node (~$400/month)
-- S3: ~$50/month
-- Data transfer: ~$100/month
-- Compute nodes: $300-500/month
-
-## GCP Deployment
-
-### Prerequisites
-
-- gcloud CLI configured
-- Terraform 1.5+
-- GCP project with billing enabled
-
-### Quick Start
+### 4. Configure kubectl
 
 ```bash
-cd terraform/gcp
+# AWS
+aws eks update-kubeconfig --region REGION --name CLUSTER_NAME
 
-# Initialize
-terraform init
+# GCP
+gcloud container clusters get-credentials CLUSTER_NAME --region REGION
 
-# Plan
-terraform plan -var-file=environments/production.tfvars
-
-# Apply
-terraform apply -var-file=environments/production.tfvars
+# Azure
+az aks get-credentials --resource-group RG_NAME --name CLUSTER_NAME
 ```
 
-### What Gets Created
-
-**Network**
-- VPC with subnets
-- Cloud NAT
-- Firewall rules
-- Load Balancers
-
-**Compute**
-- GKE cluster with node pools
-- Auto-scaling enabled
-
-**Storage**
-- Cloud SQL PostgreSQL 16
-- Cloud Storage buckets
-- Persistent Disks
-
-**Search**
-- Self-managed OpenSearch on GCE
-
-**Monitoring**
-- Cloud Logging
-- Cloud Monitoring
-- Alerting Policies
-
-## Modules
-
-### VPC Module
-
-Creates network infrastructure with best practices:
-
-```hcl
-module "vpc" {
-  source = "./modules/vpc"
-
-  environment = "production"
-  cidr_block  = "10.0.0.0/16"
-
-  availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
-
-  tags = {
-    Project = "Elephant"
-  }
-}
-```
-
-### RDS Module
-
-PostgreSQL 16 with Multi-AZ, backups, and monitoring:
-
-```hcl
-module "rds" {
-  source = "./modules/rds"
-
-  environment       = "production"
-  instance_class    = "db.r5.xlarge"
-  allocated_storage = 500
-
-  multi_az               = true
-  backup_retention_period = 7
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnet_ids
-}
-```
-
-### S3 Module
-
-S3 buckets with versioning, encryption, and lifecycle policies:
-
-```hcl
-module "s3" {
-  source = "./modules/s3"
-
-  environment = "production"
-
-  buckets = {
-    archive = {
-      versioning = true
-      lifecycle_rules = [
-        {
-          transition_days = 90
-          storage_class   = "GLACIER"
-        }
-      ]
-    }
-  }
-}
-```
-
-### OpenSearch Module
-
-Managed OpenSearch Service:
-
-```hcl
-module "opensearch" {
-  source = "./modules/opensearch"
-
-  environment     = "production"
-  instance_type   = "r5.large.search"
-  instance_count  = 3
-  ebs_volume_size = 100
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnet_ids
-}
-```
-
-### EKS Module
-
-EKS cluster with managed node groups:
-
-```hcl
-module "eks" {
-  source = "./modules/eks"
-
-  environment    = "production"
-  cluster_version = "1.28"
-
-  node_groups = {
-    general = {
-      instance_types = ["t3.xlarge"]
-      min_size       = 2
-      max_size       = 10
-      desired_size   = 3
-    }
-  }
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnet_ids
-}
-```
-
-## Variables
-
-### Common Variables
-
-```hcl
-variable "environment" {
-  description = "Environment name (dev, staging, production)"
-  type        = string
-}
-
-variable "region" {
-  description = "AWS/GCP region"
-  type        = string
-  default     = "us-east-1"
-}
-
-variable "tags" {
-  description = "Common tags for all resources"
-  type        = map(string)
-  default     = {}
-}
-```
-
-### Environment-Specific
-
-Create `environments/production.tfvars`:
-
-```hcl
-environment = "production"
-region      = "us-east-1"
-
-# Database
-db_instance_class    = "db.r5.xlarge"
-db_allocated_storage = 500
-db_multi_az          = true
-
-# OpenSearch
-opensearch_instance_type  = "r5.large.search"
-opensearch_instance_count = 3
-
-# EKS
-eks_node_instance_types = ["t3.xlarge"]
-eks_node_min_size       = 3
-eks_node_max_size       = 10
-
-tags = {
-  Project     = "Elephant"
-  Environment = "production"
-  ManagedBy   = "Terraform"
-}
-```
-
-## Outputs
-
-Terraform outputs provide connection information:
-
-```hcl
-output "rds_endpoint" {
-  description = "PostgreSQL connection endpoint"
-  value       = module.rds.endpoint
-}
-
-output "s3_bucket_archive" {
-  description = "S3 archive bucket name"
-  value       = module.s3.bucket_names["archive"]
-}
-
-output "opensearch_endpoint" {
-  description = "OpenSearch endpoint"
-  value       = module.opensearch.endpoint
-}
-
-output "eks_cluster_endpoint" {
-  description = "EKS cluster endpoint"
-  value       = module.eks.cluster_endpoint
-}
-
-output "eks_cluster_name" {
-  description = "EKS cluster name"
-  value       = module.eks.cluster_name
-}
-```
-
-## State Management
-
-### Remote State (S3 Backend)
-
-```hcl
-terraform {
-  backend "s3" {
-    bucket         = "elephant-terraform-state"
-    key            = "production/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "terraform-state-lock"
-  }
-}
-```
-
-### State Locking
-
-Create DynamoDB table for state locking:
+### 5. Deploy Elephant
 
 ```bash
-aws dynamodb create-table \
-  --table-name terraform-state-lock \
-  --attribute-definitions AttributeName=LockID,AttributeType=S \
-  --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST
+# Deploy to Kubernetes
+kubectl apply -k ../../kubernetes/base
+
+# Watch deployment
+kubectl get pods -n elephant -w
 ```
+
+## Environment Configurations
+
+Each provider includes two environment configurations:
+
+### Development
+- Lower cost (~$200-350/month)
+- Single availability zone
+- Smaller instance sizes
+- Reduced redundancy
+- Perfect for testing and development
+
+### Production
+- High availability (~$800-1500/month)
+- Multi-zone deployment
+- Larger instance sizes
+- Automated backups
+- Geo-redundant storage
+- Production-ready security
+
+## Feature Comparison
+
+| Feature | AWS | GCP | Azure |
+|---------|-----|-----|-------|
+| **Kubernetes** | EKS | GKE (best) | AKS |
+| **Database HA** | Multi-AZ | Regional | Zone-redundant |
+| **Auto-scaling** | ✓ | ✓ | ✓ |
+| **Managed Identity** | IRSA | Workload Identity | Managed Identity |
+| **Secret Management** | Secrets Manager | Secret Manager | Key Vault |
+| **Backup Automation** | ✓ | ✓ | ✓ |
+| **Encryption** | KMS | Cloud KMS | Key Vault |
+| **Monitoring** | CloudWatch | Cloud Monitoring | Azure Monitor |
+| **Cost Management** | Cost Explorer | Cost Management | Cost Management |
+
+## Cost Optimization Tips
+
+### All Providers
+
+1. **Use spot/preemptible instances** for non-critical workloads
+2. **Enable autoscaling** to match demand
+3. **Use committed use discounts** (1-3 year terms)
+4. **Archive old data** to cheaper storage tiers
+5. **Right-size instances** based on actual usage
+6. **Delete unused resources** regularly
+
+### Provider-Specific
+
+**AWS**:
+- Use Savings Plans
+- Reserved Instances for predictable workloads
+- S3 Intelligent-Tiering
+
+**GCP**:
+- Committed use discounts
+- Sustained use discounts (automatic)
+- Spot VMs for dev/test
+
+**Azure**:
+- Azure Reserved Instances
+- Azure Hybrid Benefit (if you have licenses)
+- Burstable database tiers for dev
 
 ## Security Best Practices
 
-1. **Secrets**: Use AWS Secrets Manager or GCP Secret Manager
-2. **IAM**: Principle of least privilege
-3. **Encryption**: Enable at-rest and in-transit encryption
-4. **Network**: Use private subnets for databases
-5. **Logging**: Enable audit logs and CloudTrail
-6. **Backups**: Automated backups with retention policies
+### All Configurations Include
 
-## Disaster Recovery
+- ✓ Private Kubernetes nodes
+- ✓ Database in private subnet
+- ✓ Encryption at rest
+- ✓ Encryption in transit (TLS)
+- ✓ Managed identities (no credentials)
+- ✓ Network isolation
+- ✓ Automated backups
+- ✓ Audit logging
 
-### RDS Backups
+### Additional Recommendations
 
-- Automated daily backups (7-day retention)
-- Point-in-time recovery enabled
-- Cross-region snapshots for production
+1. **Enable MFA** on cloud accounts
+2. **Use separate accounts** for dev/staging/prod
+3. **Implement least privilege** IAM policies
+4. **Enable security scanning** for containers
+5. **Set up alerts** for suspicious activity
+6. **Regular security audits**
+7. **Rotate credentials** regularly
 
-### S3 Versioning
+## Operations
 
-- Versioning enabled on archive buckets
-- Lifecycle policies for cost optimization
-- Cross-region replication (optional)
+### Common Tasks
 
-### EKS Backups
-
-- Velero for cluster backup
-- Regular etcd snapshots
-- Infrastructure as Code for rebuild
-
-## Monitoring and Alerting
-
-### CloudWatch Alarms
-
-```hcl
-resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
-  alarm_name          = "elephant-rds-high-cpu"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/RDS"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "80"
-  alarm_description   = "RDS CPU utilization is too high"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-}
-```
-
-### SNS Topics
-
-```hcl
-resource "aws_sns_topic" "alerts" {
-  name = "elephant-alerts"
-}
-
-resource "aws_sns_topic_subscription" "alerts_email" {
-  topic_arn = aws_sns_topic.alerts.arn
-  protocol  = "email"
-  endpoint  = "ops@example.com"
-}
-```
-
-## Multi-Environment Setup
-
-```
-terraform/
-├── environments/
-│   ├── dev.tfvars
-│   ├── staging.tfvars
-│   └── production.tfvars
-└── workspaces/
-    ├── dev/
-    ├── staging/
-    └── production/
-```
-
-Use Terraform workspaces:
-
+**Scale cluster**:
 ```bash
-# Create workspace
-terraform workspace new production
+# AWS
+aws eks update-nodegroup-config --cluster-name NAME --nodegroup-name NAME --scaling-config desiredSize=3
 
-# Select workspace
-terraform workspace select production
+# GCP
+gcloud container clusters resize CLUSTER --num-nodes 3 --region REGION
 
-# Apply
-terraform apply -var-file=environments/production.tfvars
+# Azure
+az aks scale --resource-group RG --name CLUSTER --node-count 3
 ```
 
-## Migration from Manual Setup
-
-1. Import existing resources
-2. Generate Terraform configuration
-3. Validate with `terraform plan`
-4. Apply incrementally
-
+**View logs**:
 ```bash
-# Import RDS instance
-terraform import module.rds.aws_db_instance.main elephant-db
+# All providers (Kubernetes)
+kubectl logs -n elephant -l app=elephant-repository -f
 
-# Import S3 bucket
-terraform import module.s3.aws_s3_bucket.archive elephant-archive
+# Provider-specific logging tools also available
 ```
 
-## Cleanup
-
+**Database backup**:
 ```bash
-# Destroy all resources
-terraform destroy -var-file=environments/production.tfvars
+# AWS
+aws rds create-db-snapshot --db-instance-identifier ID --db-snapshot-identifier SNAPSHOT
 
-# Destroy specific module
-terraform destroy -target=module.opensearch
+# GCP
+gcloud sql backups create --instance INSTANCE
+
+# Azure
+az postgres flexible-server backup create --resource-group RG --name SERVER
 ```
 
 ## Troubleshooting
 
-### State Issues
+### Connection Issues
 
 ```bash
-# Show state
-terraform show
+# Check cluster status
+kubectl get nodes
 
-# List resources
-terraform state list
+# Check pods
+kubectl get pods -n elephant
 
-# Remove resource from state
-terraform state rm module.rds.aws_db_instance.main
+# Check events
+kubectl get events -n elephant --sort-by='.lastTimestamp'
 ```
 
-### Apply Failures
+### Database Issues
 
 ```bash
-# Enable debug logging
-export TF_LOG=DEBUG
-terraform apply
-
-# Target specific resource
-terraform apply -target=module.vpc
+# Test connectivity
+kubectl run -it --rm debug --image=postgres:16-alpine --restart=Never -n elephant -- \
+  psql -h DATABASE_HOST -U USERNAME -d elephant
 ```
 
-## Further Reading
+### Permission Issues
+
+Check provider-specific IAM/RBAC:
+- AWS: IAM roles and policies
+- GCP: IAM bindings and service accounts
+- Azure: Role assignments and managed identities
+
+## Cleanup
+
+### Destroy Infrastructure
+
+```bash
+# From provider directory
+terraform destroy -var-file=environments/dev.tfvars
+```
+
+**⚠️ Warning**: This deletes all resources and data. Backup first!
+
+### Verify Deletion
+
+Check cloud console to ensure all resources are deleted to avoid unexpected charges.
+
+## Migration Between Clouds
+
+To migrate Elephant between cloud providers:
+
+1. **Backup data**: Export PostgreSQL database and storage
+2. **Deploy new infrastructure**: Use Terraform for target cloud
+3. **Restore data**: Import to new database and storage
+4. **Update DNS**: Point to new load balancer
+5. **Verify**: Test all functionality
+6. **Cleanup**: Destroy old infrastructure
+
+## Cost Estimates
+
+### Development Environment
+
+| Provider | Monthly Cost | Notes |
+|----------|--------------|-------|
+| AWS | ~$200 | t3.medium nodes, db.t3.medium |
+| GCP | ~$200-300 | e2-standard-4, spot instances |
+| Azure | ~$250-350 | Standard_D4s_v3, burstable DB |
+
+### Production Environment
+
+| Provider | Monthly Cost | Notes |
+|----------|--------------|-------|
+| AWS | ~$800-1500 | m5.xlarge nodes, Multi-AZ |
+| GCP | ~$800-1200 | e2-standard-8, regional HA |
+| Azure | ~$1000-1500 | Standard_D8s_v3, zone-redundant |
+
+Costs vary by region, usage, and specific configuration.
+
+## Next Steps
+
+1. **Choose your cloud provider** based on requirements
+2. **Review provider-specific README** for detailed instructions
+3. **Deploy development environment** first
+4. **Test thoroughly** before production
+5. **Set up monitoring and alerts**
+6. **Configure backups and disaster recovery**
+7. **Document your configuration**
+
+## Support
+
+- [AWS Terraform Guide](aws/README.md)
+- [GCP Terraform Guide](gcp/README.md)
+- [Azure Terraform Guide](azure/README.md)
+- [Kubernetes Deployment](../kubernetes/README.md)
+- [Docker Compose (Local)](../docker-compose/README.md)
+
+## See Also
 
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [Terraform GCP Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs)
-- [Best Practices](https://www.terraform.io/docs/cloud/guides/recommended-practices/index.html)
+- [Terraform Azure Provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)

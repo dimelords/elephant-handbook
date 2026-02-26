@@ -1,0 +1,107 @@
+# Elephant Observability Stack
+# Optional monitoring with Prometheus, Grafana, Loki, Tempo, and Alloy (for Faro)
+
+services:
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../configs/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../configs/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - elephant-net
+    restart: unless-stopped
+
+  # Loki - Log aggregation
+  loki:
+    image: grafana/loki:2.9.3
+    command: [ "-config.file=/etc/loki/local-config.yaml" ]
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+    networks:
+      - elephant-net
+    restart: unless-stopped
+
+  # Tempo - Distributed tracing
+  tempo:
+    image: grafana/tempo:2.3.1
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    ports:
+      - "3200:3200"   # Tempo HTTP
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ../configs/observability/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - ../configs/observability/tempo/overrides.yaml:/etc/tempo/overrides.yaml:ro
+      - tempo_data:/tmp/tempo
+    networks:
+      - elephant-net
+    restart: unless-stopped
+
+  # Grafana Alloy - Telemetry collector (receives Faro data from frontend)
+  alloy:
+    image: grafana/alloy:latest
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    ports:
+      - "12345:12345"  # Alloy HTTP UI
+      - "12346:12346"  # Faro receiver endpoint
+    volumes:
+      - ../configs/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      - tempo
+      - loki
+      - prometheus
+    networks:
+      - elephant-net
+    restart: unless-stopped
+
+  # Grafana - Dashboards and visualization
+  grafana:
+    image: grafana/grafana:10.3.0
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../configs/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../configs/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+      - alloy
+    networks:
+      - elephant-net
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+    driver: local
+  loki_data:
+    driver: local
+  tempo_data:
+    driver: local
+  alloy_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  elephant-net:
+    external: true
+    name: elephant-net

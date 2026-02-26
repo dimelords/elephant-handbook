@@ -1,0 +1,71 @@
+# Prometheus Configuration
+# Metrics storage and querying
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'elephant-local'
+    environment: 'development'
+
+# Load alert rules
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Observability stack
+  - job_name: 'tempo'
+    static_configs:
+      - targets: ['tempo:3200']
+
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+
+  # Elephant backend services
+  - job_name: 'elephant-repository'
+    static_configs:
+      - targets: ['repository:1080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'elephant-index'
+    static_configs:
+      - targets: ['index:1081']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'elephant-user'
+    static_configs:
+      - targets: ['user:1082']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Infrastructure services
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 15s
+
+  - job_name: 'opensearch'
+    static_configs:
+      - targets: ['opensearch:9200']
+    metrics_path: '/_prometheus/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    metrics_path: '/minio/v2/metrics/cluster'
+    scrape_interval: 30s
