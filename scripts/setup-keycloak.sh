@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Elephant - Keycloak Setup Script (FIXED VERSION)
-# Configures Keycloak realm, client, and test users
-# This version uses kcadm.sh to avoid HTTPS requirement issues
+# Elephant - Keycloak Setup Script
+# Configures Keycloak realm, client, and test users using kcadm.sh
 
 set -e
 
@@ -14,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8080}"
+KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8180}"
 KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:-admin}"
 KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
 REALM_NAME="elephant"
@@ -134,31 +133,80 @@ create_client() {
 create_client_scopes() {
     print_step "Creating custom client scopes"
 
-    # Create permission scopes as optional scopes
-    for scope in schema_read doc_read_all eventlog_read; do
+    # List of all required scopes
+    SCOPES=(
+        "doc_read"
+        "doc_read_all"
+        "doc_write"
+        "doc_delete"
+        "schema_read"
+        "schema_admin"
+        "search"
+        "eventlog_read"
+        "workflow_admin"
+        "metrics_read"
+        "metrics_admin"
+        "user"
+        "baboon"
+        "media"
+        "content-api"
+        "asset_upload"
+    )
+
+    # Create all scopes
+    for scope in "${SCOPES[@]}"; do
         docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh create client-scopes -r $REALM_NAME \
             -s name=$scope \
             -s protocol=openid-connect \
             -s 'attributes={"include.in.token.scope":"true"}' 2>/dev/null || print_warn "Scope $scope may already exist"
     done
 
-    # Get scope IDs
-    SCHEMA_READ_ID=$(docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh get client-scopes -r $REALM_NAME \
-        | jq -r '.[] | select(.name=="schema_read") | .id')
-    DOC_READ_ID=$(docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh get client-scopes -r $REALM_NAME \
-        | jq -r '.[] | select(.name=="doc_read_all") | .id')
-    EVENTLOG_READ_ID=$(docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh get client-scopes -r $REALM_NAME \
-        | jq -r '.[] | select(.name=="eventlog_read") | .id')
-
-    # Add as optional scopes (not default)
-    docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh update \
-        clients/$CLIENT_UUID/optional-client-scopes/$SCHEMA_READ_ID -r $REALM_NAME 2>/dev/null || true
-    docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh update \
-        clients/$CLIENT_UUID/optional-client-scopes/$DOC_READ_ID -r $REALM_NAME 2>/dev/null || true
-    docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh update \
-        clients/$CLIENT_UUID/optional-client-scopes/$EVENTLOG_READ_ID -r $REALM_NAME 2>/dev/null || true
+    # Get scope IDs and add as optional scopes to the client
+    for scope in "${SCOPES[@]}"; do
+        SCOPE_ID=$(docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh get client-scopes -r $REALM_NAME \
+            | jq -r '.[] | select(.name=="'$scope'") | .id')
+        
+        if [ -n "$SCOPE_ID" ]; then
+            docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh update \
+                clients/$CLIENT_UUID/optional-client-scopes/$SCOPE_ID -r $REALM_NAME 2>/dev/null || true
+        fi
+    done
 
     print_info "Client scopes configured as optional scopes"
+}
+
+# Make commonly used scopes default
+make_default_scopes() {
+    print_step "Configuring default client scopes"
+
+    # Scopes that should be default (automatically included in tokens)
+    DEFAULT_SCOPES=(
+        "search"
+        "doc_read"
+        "doc_write"
+        "schema_read"
+        "user"
+        "index_admin"
+    )
+
+    for scope in "${DEFAULT_SCOPES[@]}"; do
+        SCOPE_ID=$(docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh get client-scopes -r $REALM_NAME \
+            | jq -r '.[] | select(.name=="'$scope'") | .id')
+        
+        if [ -n "$SCOPE_ID" ]; then
+            # Remove from optional scopes first (if it exists there)
+            docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh delete \
+                clients/$CLIENT_UUID/optional-client-scopes/$SCOPE_ID -r $REALM_NAME 2>/dev/null || true
+            
+            # Add as default scope
+            docker exec $CONTAINER_NAME /opt/keycloak/bin/kcadm.sh update \
+                clients/$CLIENT_UUID/default-client-scopes/$SCOPE_ID -r $REALM_NAME 2>/dev/null || true
+            
+            print_info "Made '$scope' a default scope"
+        fi
+    done
+
+    print_info "Default scopes configured"
 }
 
 # Remove conflicting mappers
@@ -325,7 +373,7 @@ create_users() {
 # Main setup
 main() {
     echo "========================================"
-    echo "  Elephant Keycloak Setup (FIXED)"
+    echo "  Elephant Keycloak Setup"
     echo "========================================"
     echo
 
@@ -334,6 +382,7 @@ main() {
     create_realm
     create_client
     create_client_scopes
+    make_default_scopes
     remove_conflicting_mappers
     add_audience_mapper
     create_elephant_permissions

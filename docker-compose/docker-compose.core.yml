@@ -50,17 +50,24 @@ services:
       KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_URL: https://localhost:8443
       KC_HOSTNAME_STRICT: false
       KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HOSTNAME_STRICT_BACKCHANNEL: false
+      KC_HTTP_ENABLED: true
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/server.crt.pem
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/server.key.pem
       KC_LOG_LEVEL: info
       KC_METRICS_ENABLED: true
       KC_HEALTH_ENABLED: true
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      JAVA_OPTS_APPEND: "-Djava.net.preferIPv4Stack=true -Xms512m -Xmx1024m -Dquarkus.http.limits.max-header-size=64K"
+    volumes:
+      - ${HOME}/.config/mkcert/localhost.pem:/opt/keycloak/conf/server.crt.pem:ro
+      - ${HOME}/.config/mkcert/localhost-key.pem:/opt/keycloak/conf/server.key.pem:ro
     ports:
-      - "8080:8080"
+      - "8180:8080"
       - "8443:8443"
     depends_on:
       keycloak-postgres:
@@ -110,6 +117,23 @@ services:
     networks:
       - elephant-net
 
+  # Redis - Cache and session storage for collaborative editing
+  redis:
+    image: redis:7-alpine
+    container_name: elephant-redis-1
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - elephant-net
+
   # OpenSearch - Search engine
   opensearch:
     build:
@@ -153,8 +177,8 @@ services:
       OIDC_CONFIG: "http://keycloak:8080/realms/elephant/.well-known/openid-configuration"
       JWT_AUDIENCE: "elephant"
       CLIENT_ID: "elephant"
+      CLIENT_SECRET: "${ELEPHANT_CLIENT_SECRET}"
       MIGRATE_DB: "true"
-      MOCK_JWT_SIGNING_KEY: 'MIGkAgEBBDAgdjcifmVXiJoQh7IbTnsCS81CxYHQ1r6ftXE6ykJDz1SoQJEB6LppaCLpNBJhGNugBwYFK4EEACKhZANiAAS4LqvuFUwFXUNpCPTtgeMy61hE-Pdm57OVzTaVKUz7GzzPKNoGbcTllPGDg7nzXIga9ObRNs8ytSLQMOWIO8xJW35Xko4kwPR_CVsTS5oMaoYnBCOZYEO2NXND7gU7GoM'
       LOG_LEVEL: debug
     ports:
       - "1080:1080"
@@ -214,6 +238,8 @@ services:
         condition: service_healthy
       index-migrate:
         condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
     environment:
       CONN_STRING: "postgres://postgres:postgres@postgres:5432/elephant-index?sslmode=disable"
       REPOSITORY_ENDPOINT: "http://repository:1080"
@@ -225,10 +251,11 @@ services:
       OIDC_CONFIG: "http://keycloak:8080/realms/elephant/.well-known/openid-configuration"
       JWT_AUDIENCE: "elephant"
       CLIENT_ID: "elephant"
-      CLIENT_SECRET: "${ELEPHANT_CLIENT_SECRET:-jxnWDN2TJhDrm6UNdciLDuTZDpt8MmcF}"
+      CLIENT_SECRET: "${ELEPHANT_CLIENT_SECRET}"
       LOG_LEVEL: debug
     ports:
-      - "1082:1081"
+      - "1082:1080"  # API port
+      - "1092:1081"  # Health port
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:1081/health/ready"]
       interval: 10s
@@ -280,14 +307,18 @@ services:
         condition: service_healthy
       user-migrate:
         condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
     environment:
       CONN_STRING: "postgres://postgres:postgres@postgres:5432/elephant_user?sslmode=disable"
       OIDC_CONFIG: "http://keycloak:8080/realms/elephant/.well-known/openid-configuration"
       JWT_AUDIENCE: "elephant"
       CLIENT_ID: "elephant"
+      CLIENT_SECRET: "${ELEPHANT_CLIENT_SECRET}"
       LOG_LEVEL: debug
     ports:
-      - "1083:1081"
+      - "1083:1080"  # API port
+      - "1093:1081"  # Health port
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:1081/health/ready"]
       interval: 10s
@@ -303,6 +334,8 @@ volumes:
   keycloak_postgres_data:
     driver: local
   minio_data:
+    driver: local
+  redis_data:
     driver: local
   opensearch_data:
     driver: local

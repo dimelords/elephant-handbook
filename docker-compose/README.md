@@ -30,7 +30,7 @@ This directory contains modular Docker Compose files for running Elephant servic
 - 1083 - elephant-user
 - 5432 - PostgreSQL
 - 5433 - Keycloak PostgreSQL
-- 8080 - Keycloak
+- 8180 - Keycloak
 - 9000 - MinIO API
 - 9001 - MinIO Console
 - 9200 - OpenSearch
@@ -48,7 +48,8 @@ This directory contains modular Docker Compose files for running Elephant servic
 - elephant-spell (hunspell-based spellcheck)
 
 **Ports:**
-- 1084 - elephant-spell
+- 1380 - elephant-spell (API)
+- 1381 - elephant-spell (health)
 
 **When to use:**
 - Editorial workflows requiring spellcheck
@@ -115,7 +116,7 @@ sleep 60
 
 # Configure Keycloak
 cd ../scripts
-./setup-keycloak-fixed.sh
+./setup-keycloak.sh
 
 # Clean up init containers (optional but recommended)
 docker rm elephant-index-migrate-1 elephant-user-migrate-1 elephant-minio-init-1 2>/dev/null || true
@@ -282,7 +283,7 @@ docker volume rm elephant_tempo_data
 docker info
 
 # Check for port conflicts
-lsof -i :8080  # Keycloak
+lsof -i :8180  # Keycloak
 lsof -i :1080  # Repository
 lsof -i :5432  # PostgreSQL
 
@@ -363,6 +364,5 @@ docker container prune
 
 ## See Also
 
-- [Fresh Start Guide](../docs/FRESH-START-GUIDE.md) - Complete setup instructions
-- [Services Overview](../docs/SERVICES-OVERVIEW.md) - All services explained
-- [Keycloak Setup Fixes](../docs/KEYCLOAK-SETUP-FIXES.md) - Authentication configuration
+- [Architecture](../docs/architecture/system-architecture.md)
+- [eleconf Usage](../docs/configuration/eleconf-usage.md)

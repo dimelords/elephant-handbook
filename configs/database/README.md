@@ -1202,6 +1202,4 @@ If you see "role already exists" errors, this is usually harmless. The script us
 
 ## See Also
 
-- [Fresh Start Guide](../../docs/FRESH-START-GUIDE.md) - Complete setup instructions
-- [Services Overview](../../docs/SERVICES-OVERVIEW.md) - All services explained
 - [Docker Compose README](../../docker-compose/README.md) - Compose file documentation

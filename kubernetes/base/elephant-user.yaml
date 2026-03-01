@@ -55,7 +55,7 @@ spec:
                   name: elephant-user-config
                   key: LOG_LEVEL
             - name: OIDC_CONFIG
-              value: "http://keycloak:8080/realms/elephant/.well-known/openid-configuration"
+              value: "http://keycloak:8180/realms/elephant/.well-known/openid-configuration"
           resources:
             requests:
               cpu: 250m

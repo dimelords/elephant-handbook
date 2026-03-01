@@ -160,14 +160,11 @@ This script will:
 
 All scripts are in the `scripts/` directory:
 
-- `start-elephant.sh` - Interactive script to start all services with Docker Compose
-- `setup-keycloak-fixed.sh` - Configure Keycloak realm and clients (called by start-elephant.sh)
-
-Additional scripts can be added for:
-- Cloning all Elephant repositories
-- Syncing forks with upstream TT repositories
-- Deploying to Kubernetes
-- Backing up databases and storage
+- `start-elephant.sh` - Interactive script to start all services
+- `setup-keycloak.sh` - Configure Keycloak realm and clients (called by start-elephant.sh)
+- `setup-certs.sh` - Generate local HTTPS certificates (called by start-elephant.sh)
+- `initialize-index.sh` - Register OpenSearch cluster and create index set
+- `apply-schemas.sh` - Apply document schemas to the repository
 
 ## Infrastructure as Code
 

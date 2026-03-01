@@ -82,7 +82,7 @@ Do you want to apply these changes? [y/n]:
 ```hcl
 environment "local" {
   repository_endpoint = "http://localhost:1080"
-  keycloak_endpoint = "http://localhost:8080/realms/elephant"
+  keycloak_endpoint = "http://localhost:8180/realms/elephant"
 }
 ```
 

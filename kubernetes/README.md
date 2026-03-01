@@ -54,7 +54,7 @@ kubectl get all -n elephant
 
 ```bash
 # Port forward to access services locally
-kubectl port-forward -n elephant svc/keycloak 8080:8080
+kubectl port-forward -n elephant svc/keycloak 8180:8080
 kubectl port-forward -n elephant svc/repository 1080:1080
 kubectl port-forward -n elephant svc/index 1082:1082
 kubectl port-forward -n elephant svc/user 1083:1083

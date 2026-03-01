@@ -179,7 +179,7 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 8080
+    - port: 8180
       targetPort: 8080
       protocol: TCP
       name: http

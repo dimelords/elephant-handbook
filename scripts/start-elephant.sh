@@ -98,8 +98,26 @@ check_prerequisites() {
         print_warn "jq is needed for token testing but not required for startup"
     fi
 
+    if ! command -v mkcert &> /dev/null; then
+        print_warn "mkcert not found. Install with: brew install mkcert"
+        print_warn "mkcert is needed for HTTPS certificates"
+    fi
+
     print_info "✓ Docker $(docker --version | awk '{print $3}' | tr -d ',')"
     print_info "✓ Docker Compose $(docker compose version | awk '{print $4}')"
+}
+
+setup_certificates() {
+    print_step "Setting up HTTPS Certificates"
+    
+    cd "$SCRIPT_DIR"
+    if [ -f "./setup-certs.sh" ]; then
+        print_info "Running certificate setup..."
+        ./setup-certs.sh
+    else
+        print_warn "setup-certs.sh not found, skipping certificate setup"
+        print_warn "HTTPS will not be available"
+    fi
 }
 
 check_docker_running() {
@@ -135,7 +153,7 @@ start_infrastructure() {
     # Wait for Keycloak
     print_info "Waiting for Keycloak..."
     for i in {1..60}; do
-        if curl -sf http://localhost:8080/health/ready &>/dev/null; then
+        if curl -sf http://localhost:8180/health/ready &>/dev/null; then
             print_info "✓ Keycloak is ready"
             break
         fi
@@ -191,11 +209,11 @@ setup_keycloak() {
     print_info "Using Keycloak container: $KEYCLOAK_CONTAINER"
     
     cd "$SCRIPT_DIR"
-    if [ -f "./setup-keycloak-fixed.sh" ]; then
+    if [ -f "./setup-keycloak.sh" ]; then
         print_info "Running Keycloak setup script..."
-        KEYCLOAK_CONTAINER="$KEYCLOAK_CONTAINER" ./setup-keycloak-fixed.sh
+        KEYCLOAK_CONTAINER="$KEYCLOAK_CONTAINER" ./setup-keycloak.sh
     else
-        print_error "setup-keycloak-fixed.sh not found!"
+        print_error "setup-keycloak.sh not found!"
         print_warn "You'll need to configure Keycloak manually"
         return 1
     fi
@@ -276,7 +294,7 @@ show_summary() {
 EOF
     echo -e "${NC}"
     
-    echo "  🔐 Keycloak Admin:     http://localhost:8080/admin"
+    echo "  🔐 Keycloak Admin:     https://localhost:8443/admin (or http://localhost:8180/admin)"
     echo "      Username:  admin"
     echo "      Password:  admin"
     echo
@@ -317,79 +335,120 @@ EOF
     echo "  Editor (read/write):   editor / editor"
     echo "  Admin (full access):   admin / admin"
     echo "  Reader (read-only):    reader / reader"
-    
+
     echo
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${CYAN}  NEXT STEPS${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo
-    echo "1. Configure repository schemas and document types (recommended):"
-    echo "   cd eleconf"
-    echo "   go run ./cmd/eleconf update -dir ../eleconf-config"
-    echo "   go run ./cmd/eleconf apply -env local -dir ../eleconf-config"
-    echo
-    echo "2. Start the frontend (elephant-chrome):"
+    echo "1. Start the frontend (elephant-chrome) with HTTPS:"
     echo "   cd elephant-chrome"
     echo "   npm install"
-    echo "   npm run dev:web"
+    echo "   npm run dev"
+    echo "   Access at: https://localhost:5173"
     echo
-    echo "3. View logs:"
+    echo "2. View logs:"
     echo "   cd $COMPOSE_DIR"
     echo "   docker compose -f docker-compose.core.yml logs -f"
     echo
-    echo "4. Stop all services:"
+    echo "3. Stop all services:"
     echo "   cd $COMPOSE_DIR"
     echo "   docker compose -f docker-compose.core.yml down"
-    
+
     if docker ps --format '{{.Names}}' | grep -q elephant-spell; then
         echo "   docker compose -f docker-compose.spell.yml down"
     fi
-    
+
     if docker ps --format '{{.Names}}' | grep -q "elephant-prometheus"; then
         echo "   docker compose -f docker-compose.observability.yml down"
     fi
-    
+
     echo
-    echo "5. Stop and remove all data:"
+    echo "4. Stop and remove all data:"
     echo "   docker compose -f docker-compose.core.yml down -v"
     echo
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo
 }
 
+initialize_index() {
+    print_step "Initializing Index Service"
+
+    cd "$SCRIPT_DIR"
+    if [ -f "./initialize-index.sh" ]; then
+        print_info "Registering OpenSearch cluster and creating index set..."
+        CLIENT_SECRET="$(cat /tmp/elephant-client-secret.txt)" ./initialize-index.sh
+    else
+        print_error "initialize-index.sh not found!"
+        print_warn "You'll need to initialize the index service manually"
+        return 1
+    fi
+}
+
+apply_repository_schemas() {
+    print_step "Applying Repository Schemas"
+
+    cd "$SCRIPT_DIR"
+    if [ -f "./apply-schemas.sh" ]; then
+        print_info "Configuring schemas and document types..."
+        CLIENT_SECRET="$(cat /tmp/elephant-client-secret.txt)" ./apply-schemas.sh
+    else
+        print_error "apply-schemas.sh not found!"
+        print_warn "You'll need to apply schemas manually"
+        return 1
+    fi
+}
+
 main() {
     print_banner
-    
+
     check_prerequisites
     check_docker_running
-    
+    setup_certificates
+
     # Start infrastructure first
     start_infrastructure
-    
+
     # Configure Keycloak before starting Elephant services
     setup_keycloak
-    
+
     # Now start Elephant services (they need Keycloak realm to exist)
     start_elephant_services
-    
+
     echo
     print_info "All core services are running!"
     echo
-    
+
+    # Initialize search index (required for frontend to work)
+    if ask_yes_no "Do you want to initialize the index service now? (recommended)" "y"; then
+        initialize_index
+    else
+        print_warn "Skipping index initialization - you'll see 'no active index' errors until you run initialize-index.sh"
+    fi
+
+    echo
+    # Apply repository schemas (required for document creation)
+    if ask_yes_no "Do you want to configure repository schemas now? (recommended)" "y"; then
+        apply_repository_schemas
+    else
+        print_warn "Skipping schema configuration - you'll need to run apply-schemas.sh later"
+    fi
+
+    echo
     # Ask about optional services
     if ask_yes_no "Do you want to start the spell service (spellcheck)?" "n"; then
         start_spell_service
     else
         print_info "Skipping spell service"
     fi
-    
+
     echo
     if ask_yes_no "Do you want to start the observability stack (Prometheus + Grafana)?" "n"; then
         start_observability
     else
         print_info "Skipping observability stack"
     fi
-    
+
     echo
     show_status
     show_summary

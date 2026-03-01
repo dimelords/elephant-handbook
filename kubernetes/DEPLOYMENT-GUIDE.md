@@ -42,7 +42,7 @@ kubectl get pods -n elephant
 
 ```bash
 # Keycloak (authentication)
-kubectl port-forward -n elephant svc/keycloak 8080:8080
+kubectl port-forward -n elephant svc/keycloak 8180:8080
 # Access: http://localhost:8080/admin (admin/admin)
 
 # Repository API
