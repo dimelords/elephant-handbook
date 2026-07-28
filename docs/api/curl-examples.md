@@ -32,7 +32,7 @@ This script will:
 ### Get Access Token (Keycloak)
 
 ```bash
-TOKEN_RESPONSE=$(curl -s -X POST http://localhost:8180/realms/elephant/protocol/openid-connect/token \
+TOKEN_RESPONSE=$(curl -s -X POST http://localhost:8280/realms/elephant/protocol/openid-connect/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=password" \
   -d "client_id=elephant" \

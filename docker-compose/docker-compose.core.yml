@@ -30,7 +30,7 @@ services:
       POSTGRES_PASSWORD: keycloak
       POSTGRES_DB: keycloak
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - keycloak_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -67,7 +67,7 @@ services:
       - ${HOME}/.config/mkcert/localhost.pem:/opt/keycloak/conf/server.crt.pem:ro
       - ${HOME}/.config/mkcert/localhost-key.pem:/opt/keycloak/conf/server.key.pem:ro
     ports:
-      - "8180:8080"
+      - "8280:8080"
       - "8443:8443"
     depends_on:
       keycloak-postgres:
@@ -285,8 +285,10 @@ services:
         psql postgres://postgres:postgres@postgres:5432/postgres -c "SELECT 1 FROM pg_database WHERE datname='elephant_user'" | grep -q 1 || \
         psql postgres://postgres:postgres@postgres:5432/postgres -c 'CREATE DATABASE "elephant_user"';
         
-        # Run migrations in order (only the "create" part above the marker)
-        for migration in /schema/001_messages.sql /schema/002_settings.sql; do
+        # Run migrations in order (only the "create" part above the marker).
+        # Globbed (not hardcoded) so new schema/NNN_*.sql files from upstream
+        # are picked up automatically.
+        for migration in $$(ls /schema/[0-9]*.sql | sort); do
           echo "Running $$(basename $$migration)...";
           # Extract only the part above "---- create above / drop below ----"
           sed '/^---- create above \/ drop below ----/,$$d' "$$migration" | \

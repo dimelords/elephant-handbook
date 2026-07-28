@@ -119,6 +119,15 @@ apply_schemas() {
 
     cd "$ELECONF_CONFIG_DIR"
 
+    # eleconf resolves endpoints from a per-environment config.json under the
+    # OS user config dir (~/.config or ~/Library/Application Support, depending
+    # on XDG_CONFIG_HOME), not from any .env file in this directory. Without
+    # this it fails with "no repository endpoint configured for environment".
+    print_info "Registering 'local' environment endpoints with eleconf..."
+    "$ELECONF_DIR/eleconf" configure --env=local \
+        --endpoint=repository=http://localhost:1080 \
+        --oidc=https://localhost:8443/realms/elephant
+
     print_info "Running eleconf update to fetch latest schema versions..."
     ENV=local \
     CLIENT_ID=elephant \

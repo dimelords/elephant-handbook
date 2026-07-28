@@ -107,6 +107,41 @@ check_prerequisites() {
     print_info "✓ Docker Compose $(docker compose version | awk '{print $4}')"
 }
 
+check_ports() {
+    print_step "Checking for Port Conflicts"
+
+    # Host ports docker-compose.core.yml binds. If another project already owns one
+    # of these (e.g. a differently-named Postgres/Keycloak stack), docker compose fails
+    # deep into the build/pull step with a cryptic "port is already allocated" error.
+    # Ports already held by our own elephant-* containers (e.g. a rerun after a partial
+    # start) are expected and not a real conflict, so those are excluded.
+    local ports=(5432 5434 6379 8280 8443 9000 9001 9200 9600)
+    local conflicts=()
+    local our_containers
+    our_containers=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '^elephant-' || true)
+
+    for port in "${ports[@]}"; do
+        if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | grep -q ":${port} "; then
+            if ! echo "$our_containers" | grep -q ":${port}->"; then
+                conflicts+=("$port")
+            fi
+        fi
+    done
+
+    if [ ${#conflicts[@]} -gt 0 ]; then
+        print_error "Port(s) already in use: ${conflicts[*]}"
+        print_warn "These are hardcoded host ports in docker-compose.core.yml."
+        print_warn "Find what's holding them with: lsof -iTCP -sTCP:LISTEN -P -n | grep -E ':($(IFS='|'; echo "${conflicts[*]}"))\\b'"
+        print_warn "Either stop the conflicting container/process, or remap the port in"
+        print_warn "docker-compose.core.yml (and the matching references in this scripts/ dir)."
+        if ! ask_yes_no "Continue anyway?" "n"; then
+            exit 1
+        fi
+    else
+        print_info "✓ No port conflicts detected"
+    fi
+}
+
 setup_certificates() {
     print_step "Setting up HTTPS Certificates"
     
@@ -140,12 +175,13 @@ start_infrastructure() {
     print_info "  • PostgreSQL (main + Keycloak)"
     print_info "  • Keycloak (authentication)"
     print_info "  • MinIO (S3 storage)"
+    print_info "  • Redis (elephant-chrome collaboration cache)"
     print_info "  • OpenSearch (search engine)"
     echo
-    
+
     cd "$COMPOSE_DIR"
     # Start only infrastructure services
-    docker compose -f docker-compose.core.yml up -d postgres keycloak-postgres keycloak minio opensearch minio-init
+    docker compose -f docker-compose.core.yml up -d postgres keycloak-postgres keycloak minio redis opensearch minio-init
     
     print_info "Waiting for infrastructure to be healthy..."
     sleep 10
@@ -153,7 +189,7 @@ start_infrastructure() {
     # Wait for Keycloak
     print_info "Waiting for Keycloak..."
     for i in {1..60}; do
-        if curl -sf http://localhost:8180/health/ready &>/dev/null; then
+        if curl -sf http://localhost:8280/health/ready &>/dev/null; then
             print_info "✓ Keycloak is ready"
             break
         fi
@@ -294,7 +330,7 @@ show_summary() {
 EOF
     echo -e "${NC}"
     
-    echo "  🔐 Keycloak Admin:     https://localhost:8443/admin (or http://localhost:8180/admin)"
+    echo "  🔐 Keycloak Admin:     https://localhost:8443/admin (or http://localhost:8280/admin)"
     echo "      Username:  admin"
     echo "      Password:  admin"
     echo
@@ -308,6 +344,7 @@ EOF
     echo
     echo "  🔎 OpenSearch:         http://localhost:9200"
     echo "  🗄️  PostgreSQL:         localhost:5432 (postgres/postgres)"
+    echo "  🧠 Redis:              localhost:6379 (elephant-chrome collaboration cache)"
     
     if docker ps --format '{{.Names}}' | grep -q elephant-spell; then
         echo
@@ -404,6 +441,7 @@ main() {
 
     check_prerequisites
     check_docker_running
+    check_ports
     setup_certificates
 
     # Start infrastructure first

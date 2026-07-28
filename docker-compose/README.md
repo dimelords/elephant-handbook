@@ -29,8 +29,8 @@ This directory contains modular Docker Compose files for running Elephant servic
 - 1082 - elephant-index
 - 1083 - elephant-user
 - 5432 - PostgreSQL
-- 5433 - Keycloak PostgreSQL
-- 8180 - Keycloak
+- 5434 - Keycloak PostgreSQL
+- 8280 - Keycloak
 - 9000 - MinIO API
 - 9001 - MinIO Console
 - 9200 - OpenSearch
@@ -283,7 +283,7 @@ docker volume rm elephant_tempo_data
 docker info
 
 # Check for port conflicts
-lsof -i :8180  # Keycloak
+lsof -i :8280  # Keycloak
 lsof -i :1080  # Repository
 lsof -i :5432  # PostgreSQL
 
