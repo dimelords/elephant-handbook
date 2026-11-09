@@ -212,20 +212,23 @@ start_elephant_services() {
     fi
     
     print_info "Starting Elephant services..."
-    print_info "  • elephant-repository"
+    print_info "  • elephant-repository (migrations applied by an init container)"
     print_info "  • elephant-index (with automatic migrations)"
-    print_info "  • elephant-user (with automatic migrations)"
+    print_info "  • elephant-user (migrations applied by an init container)"
     echo
-    
+
     cd "$COMPOSE_DIR"
-    # Start Elephant services (they depend on Keycloak realm being configured)
-    docker compose -f docker-compose.core.yml up -d repository index-migrate index user-migrate user
+    # Start Elephant services (they depend on Keycloak realm being configured).
+    # elephant-repository and elephant-user no longer migrate on startup, so the
+    # repository-migrate and user-migrate init containers (tern) run first.
+    docker compose -f docker-compose.core.yml up -d repository-migrate repository index-migrate index user-migrate user
     
     print_info "Waiting for services to be healthy..."
     sleep 15
     
     # Clean up init containers
     print_info "Cleaning up init containers..."
+    docker rm "elephant-repository-migrate-1" 2>/dev/null || true
     docker rm "elephant-index-migrate-1" 2>/dev/null || true
     docker rm "elephant-user-migrate-1" 2>/dev/null || true
     docker rm "elephant-minio-init-1" 2>/dev/null || true

@@ -32,8 +32,8 @@ Therefore, init.sql only sets up:
 3. Default privileges for security
 
 All actual schema creation (tables, indexes, views) is handled by service migrations:
-- elephant-repository: Uses MIGRATE_DB=true
-- elephant-user: Uses MIGRATE_DB=true
+- elephant-repository: `repository-migrate` init container (tern); `MIGRATE_DB` was removed upstream in v1.10.0
+- elephant-user: `user-migrate` init container (tern); its database is created by `02-extra-databases.sql`
 - elephant-index: Uses init container with migration SQL
 
 ## Usage

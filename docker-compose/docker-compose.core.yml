@@ -14,6 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../configs/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../configs/database/02-extra-databases.sql:/docker-entrypoint-initdb.d/02-extra-databases.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -157,6 +158,30 @@ services:
       - elephant-net
 
   # elephant-repository - Core document repository
+  # elephant-repository migration init container
+  # elephant-repository v1.10.0 removed --migrate-db / MIGRATE_DB: the server never
+  # migrates its own schema. Upstream applies ./schema with tern from the
+  # elephant-sqltools image (what `mage sql:migrate` does), so we do the same.
+  # tern records applied versions in public.schema_version, so this is safe to
+  # re-run on every `up` and only applies what is new.
+  repository-migrate:
+    image: ghcr.io/ttab/elephant-sqltools:v0.2.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    volumes:
+      - ../../elephant-repository/schema:/schema:ro
+    command:
+      - tern
+      - migrate
+      - --migrations
+      - /schema
+      - --conn-string
+      - postgres://postgres:postgres@postgres:5432/elephant?sslmode=disable
+    networks:
+      - elephant-net
+
   repository:
     build:
       context: ../../elephant-repository
@@ -164,6 +189,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      repository-migrate:
+        condition: service_completed_successfully
       minio:
         condition: service_healthy
       keycloak:
@@ -178,7 +205,6 @@ services:
       JWT_AUDIENCE: "elephant"
       CLIENT_ID: "elephant"
       CLIENT_SECRET: "${ELEPHANT_CLIENT_SECRET}"
-      MIGRATE_DB: "true"
       LOG_LEVEL: debug
     ports:
       - "1080:1080"
@@ -266,9 +292,15 @@ services:
     restart: unless-stopped
 
   # elephant-user migration init container
-  # This container runs once to create the database and run migrations, then exits
+  # Applies ./schema with tern (same as `mage sql:migrate`), tracked in
+  # public.schema_version, so re-running `up` only applies new migrations.
+  # This used to be a psql loop that re-ran every file on each `up`, and
+  # elephant-user's 005_inbox_broadcast.sql DROPs inbox_message, so that would
+  # have wiped the inbox every time.
+  # The elephant_user database is created by configs/database/02-extra-databases.sql
+  # when the postgres volume is first initialised.
   user-migrate:
-    image: postgres:16-alpine
+    image: ghcr.io/ttab/elephant-sqltools:v0.2.1
     depends_on:
       postgres:
         condition: service_healthy
@@ -276,26 +308,12 @@ services:
     volumes:
       - ../../elephant-user/schema:/schema:ro
     command:
-      - sh
-      - -c
-      - |
-        echo 'Running elephant-user migrations...';
-        
-        # Check if database exists, create if not
-        psql postgres://postgres:postgres@postgres:5432/postgres -c "SELECT 1 FROM pg_database WHERE datname='elephant_user'" | grep -q 1 || \
-        psql postgres://postgres:postgres@postgres:5432/postgres -c 'CREATE DATABASE "elephant_user"';
-        
-        # Run migrations in order (only the "create" part above the marker).
-        # Globbed (not hardcoded) so new schema/NNN_*.sql files from upstream
-        # are picked up automatically.
-        for migration in $$(ls /schema/[0-9]*.sql | sort); do
-          echo "Running $$(basename $$migration)...";
-          # Extract only the part above "---- create above / drop below ----"
-          sed '/^---- create above \/ drop below ----/,$$d' "$$migration" | \
-          psql postgres://postgres:postgres@postgres:5432/elephant_user
-        done
-        
-        echo 'All migrations completed successfully';
+      - tern
+      - migrate
+      - --migrations
+      - /schema
+      - --conn-string
+      - postgres://postgres:postgres@postgres:5432/elephant_user?sslmode=disable
     networks:
       - elephant-net
 

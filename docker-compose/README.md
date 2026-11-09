@@ -18,8 +18,8 @@ This directory contains modular Docker Compose files for running Elephant servic
 - elephant-user (user events)
 
 **Migration Handling:**
-- elephant-repository: Automatic via MIGRATE_DB=true
-- elephant-user: Automatic via MIGRATE_DB=true
+- elephant-repository: `repository-migrate` init container (tern, via the `elephant-sqltools` image). The server itself no longer migrates (`MIGRATE_DB` was removed in v1.10.0).
+- elephant-user: `user-migrate` init container (tern). The `elephant_user` database is created by `configs/database/02-extra-databases.sql` when the postgres volume is first created.
 - elephant-index: Automatic via init container (runs before service starts)
   - The init container will show as "Exited" in `docker ps -a` - this is expected
   - It only runs once to set up the database, then exits successfully
@@ -127,9 +127,10 @@ docker compose -f docker-compose.core.yml ps
 ```
 
 **Note:** Migrations for all services run automatically:
-- elephant-repository and elephant-user use MIGRATE_DB=true
+- elephant-repository and elephant-user use tern init containers (`repository-migrate`, `user-migrate`) that run before the service starts; applied versions are tracked in `schema_version`, so re-running `up` only applies new migrations
 - elephant-index uses an init container that runs before the service starts
-- Init containers (elephant-index-migrate, minio-init) can be removed after startup
+- Init containers (repository-migrate, user-migrate, elephant-index-migrate, minio-init) can be removed after startup
+- If an `elephant_user` database was created by the old psql-loop `user-migrate` it has no `schema_version` table and tern will fail with "already exists". Recreate it once with `docker compose -f docker-compose.core.yml down -v` (this deletes all local Elephant data)
 
 ---
 
